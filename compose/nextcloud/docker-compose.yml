@@ -1,0 +1,95 @@
+name: big-bear-nextcloud
+
+services:
+  cron:
+    image: bigbeartechworld/big-bear-nextcloud-with-smbclient:33.0.2
+    entrypoint: [/cron.sh]
+    restart: unless-stopped
+    depends_on:
+      db-nextcloud:
+        condition: service_healthy
+      redis-nextcloud:
+        condition: service_healthy
+    networks:
+      - nextcloud_network
+    volumes:
+      - /DATA/AppData/big-bear-nextcloud/html:/var/www/html
+      - ${NEXTCLOUD_DATA_PATH}:/var/www/html/data
+
+  db-nextcloud:
+    container_name: db-nextcloud
+    image: postgres:14.2
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d nextcloud"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - nextcloud_network
+    volumes:
+      - /DATA/AppData/big-bear-nextcloud/pgdata:/var/lib/postgresql/data
+
+  nextcloud:
+    container_name: nextcloud
+    image: bigbeartechworld/big-bear-nextcloud-with-smbclient:33.0.2
+    restart: unless-stopped
+    depends_on:
+      db-nextcloud:
+        condition: service_healthy
+      redis-nextcloud:
+        condition: service_healthy
+      tika:
+        condition: service_started
+        required: false
+    environment:
+      NEXTCLOUD_ADMIN_USER: ${NEXTCLOUD_ADMIN_USER}
+      NEXTCLOUD_ADMIN_PASSWORD: ${NEXTCLOUD_ADMIN_PASSWORD}
+      POSTGRES_HOST: db-nextcloud
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_HOST: redis-nextcloud
+      PHP_MEMORY_LIMIT: 1024M
+      PHP_UPLOAD_LIMIT: 1024M
+      OVERWRITEPROTOCOL: http
+    ports:
+      - "7580:80"
+    networks:
+      - nextcloud_network
+    volumes:
+      - /DATA/AppData/big-bear-nextcloud/html:/var/www/html
+      - ${NEXTCLOUD_DATA_PATH}:/var/www/html/data
+
+  redis-nextcloud:
+    container_name: redis-nextcloud
+    image: redis:6.2.20
+    restart: unless-stopped
+    user: "1000:1000"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - nextcloud_network
+    volumes:
+      - /DATA/AppData/big-bear-nextcloud/redis:/data
+
+  tika:
+    container_name: tika
+    image: apache/tika:latest
+    restart: unless-stopped
+    ports:
+      - "9998:9998"
+    networks:
+      - nextcloud_network
+
+networks:
+  nextcloud_network:
+    name: big-bear-nextcloud_nextcloud_network
+    driver: bridge

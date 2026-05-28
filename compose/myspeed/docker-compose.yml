@@ -1,0 +1,12 @@
+name: myspeed
+
+services:
+  myspeed:
+    container_name: myspeed
+    image: germannewsmaker/myspeed:1.0.9
+    restart: unless-stopped
+    network_mode: bridge
+    ports:
+      - "5216:5216"
+    volumes:
+      - /DATA/AppData/myspeed/data:/myspeed/data

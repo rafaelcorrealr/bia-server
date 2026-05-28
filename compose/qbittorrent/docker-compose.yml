@@ -1,0 +1,19 @@
+name: qbittorrent
+
+services:
+  qbittorrent:
+    container_name: qbittorrent
+    image: ghcr.io/hotio/qbittorrent:release-5.0.4
+    restart: unless-stopped
+    network_mode: bridge
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: America/Sao_Paulo
+      UMASK: "002"
+    ports:
+      - "8181:8080"
+    volumes:
+      - /DATA/AppData/qbittorrent/config:/config
+      - ${DOWNLOADS_PATH}:/downloads
+      - /DATA:/DATA

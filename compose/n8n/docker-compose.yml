@@ -1,0 +1,16 @@
+name: n8n
+
+services:
+  n8n:
+    container_name: n8n
+    image: n8nio/n8n:1.123.0
+    restart: unless-stopped
+    network_mode: bridge
+    environment:
+      TZ: America/Sao_Paulo
+      N8N_SECURE_COOKIE: "false"
+    ports:
+      - "5678:5678"
+    volumes:
+      - /DATA/AppData/n8n:/home/node/.n8n
+      - ${STORAGE_PATH}:/Storage1
