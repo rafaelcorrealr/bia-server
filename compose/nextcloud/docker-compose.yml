@@ -14,7 +14,7 @@ services:
       - nextcloud_network
     volumes:
       - /DATA/AppData/big-bear-nextcloud/html:/var/www/html
-      - ${NEXTCLOUD_DATA_PATH}:/var/www/html/data
+      - /mnt/Se0/00-Nextcloud/nextcloud/data:/var/www/html/data
 
   db-nextcloud:
     container_name: db-nextcloud
@@ -63,7 +63,7 @@ services:
       - nextcloud_network
     volumes:
       - /DATA/AppData/big-bear-nextcloud/html:/var/www/html
-      - ${NEXTCLOUD_DATA_PATH}:/var/www/html/data
+      - /mnt/Se0/00-Nextcloud/nextcloud/data:/var/www/html/data
 
   redis-nextcloud:
     container_name: redis-nextcloud

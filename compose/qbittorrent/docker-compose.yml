@@ -15,5 +15,5 @@ services:
       - "8181:8080"
     volumes:
       - /DATA/AppData/qbittorrent/config:/config
-      - ${DOWNLOADS_PATH}:/downloads
+      - /mnt/Hi0/Downloads:/downloads
       - /DATA:/DATA

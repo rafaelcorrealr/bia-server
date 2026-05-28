@@ -17,4 +17,4 @@ services:
       - "1901:1900"   # DLNA
     volumes:
       - /DATA/AppData/jellyfin/config:/config
-      - ${MEDIA_PATH}:/Media
+      - /mnt/Se0/10-Mídias(Jellyfin):/Media
