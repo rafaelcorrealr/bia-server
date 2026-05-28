@@ -65,7 +65,7 @@
 
 ## Rede
 
-- **LAN:** `192.168.15.0/24`
+- **LAN:** `192.168.x.0/24`
 - **Tailscale VPN:** acesso remoto seguro a todos os serviços sem expor portas para a internet
 
 ## Decisões técnicas relevantes
