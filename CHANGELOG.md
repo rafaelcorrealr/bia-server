@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.1.4] — planejada
+
+### Limites de RAM em todos os containers
+
+Aplicar `memory limit` no compose de todos os apps sem limite definido,
+para garantir que nenhum container possa esgotar a RAM do servidor.
+
+| Container | RAM em uso (2026-05-29) | Limite proposto |
+|---|---|---|
+| n8n | ~284MB | 1GB |
+| tika | ~220MB | 1GB |
+| nextcloud | ~60MB | 1GB |
+| big-bear-scrutiny | ~170MB | 512MB |
+| big-bear-syncthing | ~66MB | 512MB |
+| db-nextcloud | ~55MB | 512MB |
+| qbittorrent | ~50MB | 512MB |
+| redis-nextcloud | ~13MB | 256MB |
+| big-bear-nextcloud-cron-1 | ~6MB | 256MB |
+
+Jellyfin (4GB) e MySpeed (256MB) já possuem limites definidos.
+
+---
+
 ## [1.1.3] — 2026-05-29
 
 ### Corrigido — montagem automática do Se0 após desligamento forçado
