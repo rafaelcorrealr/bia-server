@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.1.1] — 2026-05-29
+
+### Corrigido
+- **Jellyfin sem mídia após renomear pasta:** ao renomear o volume do host (`30-Mídias` → `10-Mídias`) e atualizar o compose, o container continuava apontando para o path antigo pois o Docker preserva a configuração de volumes da criação original. Solução: `docker stop jellyfin && docker rm jellyfin && docker compose up -d` para recriar o container com os novos volumes.
+
+### Incidente — OOM Crash (2026-05-29 ~02:09)
+
+**Causa:** servidor travou por esgotamento de RAM (OOM — Out of Memory).
+
+**O que aconteceu:** dois scans de biblioteca do Jellyfin foram disparados simultaneamente (Filmes + Animes). O Jellyfin abre um processo `ffprobe` por arquivo durante o scan — com dezenas de arquivos sendo analisados ao mesmo tempo, combinado com os processos `node` dos containers Docker e o `rclone` rodando em paralelo, os 8GB de RAM + 3.7GB de swap foram esgotados.
+
+**Linha do tempo:**
+- `01:52` — systemd-journald começa a reportar "Under memory pressure"
+- `01:54` — OOM Killer ativado pelo rclone; kernel mata processos (`systemd` de usuário, `sd-pam`)
+- `02:06` — container node (Docker) morto com 22GB de memória virtual alocada
+- `02:09` — sistema trava completamente; desligamento forçado necessário
+
+**Lição aprendida:** o Jellyfin não enfileira scans simultâneos — cada scan abre processos em paralelo. Não disparar mais de um scan de biblioteca ao mesmo tempo em servidores com pouca RAM.
+
+---
+
 ## [1.1.0] — 2026-05-28
 
 ### Adicionado
