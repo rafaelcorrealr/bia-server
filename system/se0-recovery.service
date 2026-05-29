@@ -1,0 +1,12 @@
+[Unit]
+Description=Mount Se0 disk and recover dependent containers if needed
+After=local-fs.target docker.service devmon@devmon.service
+Wants=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/se0-recovery.sh
+
+[Install]
+WantedBy=multi-user.target

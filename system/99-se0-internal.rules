@@ -1,0 +1,6 @@
+# Prevent udisks2/devmon from managing Se0 (internal Seagate 2TB)
+# This avoids a race condition where udisks interferes with systemd-fsck
+# after a dirty shutdown, causing fsck to be killed (SIGTERM) before
+# completing, which prevents the disk from auto-mounting.
+# The disk is handled exclusively by fstab + se0-recovery.service.
+SUBSYSTEM=="block", ENV{ID_FS_UUID}=="c7d5b681-8d5f-400c-8e30-aca015599c67", ENV{UDISKS_IGNORE}="1"

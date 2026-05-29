@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.1.3] — 2026-05-29
+
+### Corrigido — montagem automática do Se0 após desligamento forçado
+
+**Causa raiz:** após shutdown forçado, o filesystem do Se0 ficava "sujo". No boot seguinte, `udisks2` interferia com o `systemd-fsck` durante a recuperação do journal, causando SIGTERM no fsck (~6s). Com `nofail` no fstab, o sistema bootava sem o disco, deixando Jellyfin e Nextcloud sem dados.
+
+**Fix 1 — `system/99-se0-internal.rules`**
+- Regra udev: `UDISKS_IGNORE=1` para o UUID do Se0 (c7d5b681-...)
+- Impede udisks2/devmon de gerenciar sdb1 — fsck completa sem ser interrompido
+- Instalar em: `/etc/udev/rules.d/99-se0-internal.rules`
+
+**Fix 2 — `system/se0-recovery.service` + `system/se0-recovery.sh`**
+- Serviço systemd que roda no boot após docker e devmon
+- Se Se0 não estiver montado: monta e reinicia jellyfin + nextcloud
+- Fallback de segurança para qualquer falha futura de montagem
+- Instalar: script em `/usr/local/bin/`, serviço em `/etc/systemd/system/`, `systemctl enable se0-recovery.service`
+
+---
+
 ## [1.1.2] — 2026-05-29
 
 ### Prevenção de OOM
