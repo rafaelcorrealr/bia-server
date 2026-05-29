@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.1.2] — 2026-05-29
+
+### Prevenção de OOM
+
+- **Jellyfin `MaxSimultaneousConvertingLimit`: 1** — transcodificação limitada a 1 stream simultâneo
+- **Jellyfin `LibraryScanFanoutConcurrency`: 0 → 2** — scan de biblioteca limitado; antes ilimitado, causou o crash
+- **Jellyfin `LibraryMetadataRefreshConcurrency`: 0 → 2** — idem para refresh de metadados
+- **Jellyfin memória Docker: 8GB → 4GB** — container limitado à metade da RAM, deixando margem para os demais serviços
+- **Swap: 3.7GB → 8GB** — reserva extra de segurança
+
+---
+
 ## [1.1.1] — 2026-05-29
 
 ### Corrigido
