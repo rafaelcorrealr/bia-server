@@ -123,11 +123,10 @@ docker inspect jellyfin --format '{{.State.OOMKilled}}'
 
 Marque cada item após executar e aprovar:
 
-- [ ] Teste 1 — Desligamento forçado: Se0 montou automaticamente, Jellyfin e Nextcloud ok
-- [ ] Teste 2 — Scan único monitorado: ≤ 5 processos ffprobe simultâneos
-- [ ] Teste 3 — Reprodução de vídeo: funciona normalmente, RAM abaixo de 4GB
-- [ ] Teste 4 — Nextcloud pós-reboot gracioso: dados acessíveis e íntegros
+- [x] Teste 1 — Desligamento forçado: Se0 montou automaticamente, Jellyfin e Nextcloud ok *(2026-05-30)*
+- [x] Teste 2 — Scan único monitorado: ≤ 5 processos ffprobe simultâneos *(2026-05-30)*
+- [x] Teste 3 — Reprodução de vídeo: funciona normalmente, RAM abaixo de 4GB *(2026-05-30)*
+- [x] Teste 4 — Nextcloud pós-reboot gracioso: dados acessíveis e íntegros *(2026-05-30)*
 - [ ] Teste 5 — Stress leve (opcional): nenhum container morto por OOM
 
-Quando todos os itens obrigatórios (1–4) estiverem marcados, o servidor
-pode ser considerado **estável para uso em v1.1.4**.
+**v1.1.4 aprovada e estável** — todos os testes obrigatórios (1–4) concluídos em 2026-05-30.

@@ -1,5 +1,7 @@
 # HomeLab — Infraestrutura Self-Hosted
 
+> **Nota:** toda a configuração, documentação e evolução deste HomeLab está sendo conduzida com o auxílio do [Claude](https://claude.ai) (Anthropic), utilizando majoritariamente o modelo **Claude Sonnet 4.7** via Claude Code. Os commits, decisões de arquitetura, scripts e documentação são resultado de uma colaboração direta entre o dono do servidor e a IA.
+
 Servidor doméstico rodando sobre Ubuntu Server 24.04, gerenciado com Docker Compose e CasaOS. O objetivo é ter controle total sobre dados pessoais e experimentar automação e serviços open-source.
 
 ## Stack de serviços
