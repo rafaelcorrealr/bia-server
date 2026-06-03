@@ -1,0 +1,11 @@
+[Unit]
+Description=Verificacao de integridade dos repos restic do cofre (Camada 2)
+After=local-fs.target
+
+[Service]
+Type=oneshot
+User=bia
+Group=bia
+Nice=15
+IOSchedulingClass=idle
+ExecStart=/home/bia/homelab/scripts/check-cofre.sh

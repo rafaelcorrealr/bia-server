@@ -1,5 +1,41 @@
 # Changelog
 
+## [2.0.0] — 2026-06-03
+
+### Backup e Versionamento do cofre Obsidian (duas camadas independentes)
+
+Princípio: **Syncthing é sincronização, não backup** — ele replica exclusões e
+corrupção. Implementadas duas camadas independentes para proteger o cofre
+(`/DATA/AppData/big-bear-syncthing/data/obsidian/Second Brain/`, ~136 MB).
+
+**Camada 1 — Versionamento do Syncthing (recupera exclusão/edição acidental)**
+- Folder "Obsidian" configurado com versionamento **Staggered, maxAge 90 dias**
+  (via API REST do Syncthing, sem reiniciar o container).
+- Ao receber uma exclusão/edição de outro device (Anna, celular), a Bia move a
+  cópia local antiga para `.stversions/` **antes** de aplicar. Bia é sempre-ligada
+  → vira o ponto de recuperação central.
+
+**Camada 2 — Backup real com restic (snapshots imunes ao sync)**
+- `restic 0.16.4` instalado.
+- **Repo local:** `/mnt/Se0/20-Backups/restic-cofre` (disco diferente da fonte).
+- **Repo externo:** `/mnt/Sa2/Backup/restic-cofre` (espelho via `restic copy`,
+  mesmos chunker params para dedupe).
+- Senha do repo em `~/.config/restic/cofre.pw` (chmod 600, **fora do git**).
+  ⚠️ Sem a senha o backup é irrecuperável.
+- **Retenção:** `--keep-daily 7 --keep-weekly 4 --keep-monthly 6 --prune`.
+- **Automação (systemd):**
+  - `scripts/backup-cofre.sh` + `system/backup-cofre.{service,timer}` — diário 03:00
+    (backup local → forget/prune → copy externo → forget/prune).
+  - `scripts/check-cofre.sh` + `system/check-cofre.{service,timer}` — `restic check`
+    semanal (domingo 04:00) nos dois repos.
+  - Services rodam como `User=bia`, `Nice`/`IOSchedulingClass=idle`.
+- **Teste de restauração validado:** `restic restore latest` confere byte a byte
+  com a origem (2633 arquivos) nos dois repos; `restic check` sem erros.
+
+**Fase 2 (pendente):** repositório offsite (rclone + Backblaze B2/Storj).
+
+---
+
 ## [1.1.4] — 2026-05-29
 
 ### Limites de RAM aplicados em todos os containers

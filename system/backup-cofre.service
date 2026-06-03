@@ -1,0 +1,12 @@
+[Unit]
+Description=Backup do cofre Obsidian com restic (Camada 2)
+After=network-online.target local-fs.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=bia
+Group=bia
+Nice=10
+IOSchedulingClass=idle
+ExecStart=/home/bia/homelab/scripts/backup-cofre.sh
