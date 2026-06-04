@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.1.0] — 2026-06-04
+
+### Firefly III — App de finanças pessoais (BRL + pt_BR)
+
+- Novo serviço: `firefly_iii` (porta `7590`) + `firefly_db` (MariaDB 11).
+- Compose em `compose/firefly/docker-compose.yml`; mem_limit 512 MB em ambos.
+- Configurado com `DEFAULT_LANGUAGE=pt_BR`, `DEFAULT_LOCALE=pt_BR`, `TZ=America/Sao_Paulo`.
+- `APP_KEY` e senha do banco geradas com `/dev/urandom`; senha **fora do git**.
+- Acesso: `http://192.168.15.11:7590` — setup inicial (conta admin + moeda BRL) pendente pelo usuário.
+- Próximos passos: Personal Access Token para Werus Dashboard; subir `data-importer` (CSV/OFX); incluir `firefly_db` no backup restic.
+
+---
+
 ## [2.0.0] — 2026-06-03
 
 ### Backup e Versionamento do cofre Obsidian (duas camadas independentes)

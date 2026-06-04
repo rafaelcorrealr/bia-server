@@ -1,0 +1,42 @@
+services:
+  firefly:
+    image: fireflyiii/core:latest
+    container_name: firefly_iii
+    restart: unless-stopped
+    mem_limit: 512m
+    ports:
+      - "7590:8080"
+    environment:
+      - APP_KEY=${APP_KEY}
+      - APP_URL=http://192.168.15.11:7590
+      - TZ=America/Sao_Paulo
+      - DEFAULT_LANGUAGE=pt_BR
+      - DEFAULT_LOCALE=pt_BR
+      - TRUSTED_PROXIES=**
+      - DB_CONNECTION=mysql
+      - DB_HOST=firefly_db
+      - DB_PORT=3306
+      - DB_DATABASE=firefly
+      - DB_USERNAME=firefly
+      - DB_PASSWORD=${FIREFLY_DB_PASSWORD}
+    depends_on:
+      - firefly_db
+    volumes:
+      - firefly_upload:/var/www/html/storage/upload
+
+  firefly_db:
+    image: mariadb:11
+    container_name: firefly_db
+    restart: unless-stopped
+    mem_limit: 512m
+    environment:
+      - MYSQL_RANDOM_ROOT_PASSWORD=yes
+      - MYSQL_USER=firefly
+      - MYSQL_PASSWORD=${FIREFLY_DB_PASSWORD}
+      - MYSQL_DATABASE=firefly
+    volumes:
+      - firefly_db:/var/lib/mysql
+
+volumes:
+  firefly_upload:
+  firefly_db:
