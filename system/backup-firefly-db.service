@@ -1,0 +1,12 @@
+[Unit]
+Description=Backup do banco do Firefly III com restic (mysqldump via docker)
+After=network-online.target local-fs.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=bia
+Group=bia
+Nice=10
+IOSchedulingClass=idle
+ExecStart=/home/bia/homelab/scripts/backup-firefly-db.sh
