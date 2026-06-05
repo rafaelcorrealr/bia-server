@@ -10,7 +10,7 @@ from datetime import datetime
 JELLYFIN   = Path("/mnt/Se0/10-Mídias(Jellyfin)")
 ESTUDOS    = Path("/mnt/Se0/20-Estudos/Estudos")
 MW_DIR     = Path("/mnt/Se0/20-Estudos/Método_MW_3.0-_Manutenção_de_Computadores-MIGUEL WILBERT")
-VAULT_OUT  = Path("/DATA/AppData/big-bear-syncthing/data/obsidian/Second Brain/10.Projects/DVDs")
+VAULT_OUT  = Path("/DATA/AppData/big-bear-syncthing/data/obsidian/Second Brain/10.Projects/Locadora em Casa")
 VIDEO_EXTS = {".mkv", ".mp4", ".avi", ".mov", ".m4v", ".wmv"}
 VAULT_OUT.mkdir(parents=True, exist_ok=True)
 
