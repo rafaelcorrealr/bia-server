@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.2.0] — 2026-06-06
+
+### Backup PostgreSQL do Nextcloud + Watchtower
+
+- **Backup `db-nextcloud` (PostgreSQL):** `pg_dump` via `docker exec` → `restic backup --stdin --tag nextcloud-db` — mesmos repos já existentes (Se0 + Sa2), retenção daily 7 / weekly 4 / monthly 6. Primeiro snapshot: `78acc224` (Se0) / `8347eb3e` (Sa2), 80 MB.
+- Script: `scripts/backup-nextcloud-db.sh` — credenciais em `compose/nextcloud/.env` (gitignored).
+- Timer systemd: `backup-nextcloud-db.timer` 03:30 BRT diário (15 min após Firefly DB). Enabled e testado ✅.
+- **Watchtower 1.7.1:** `compose/watchtower/docker-compose.yml` — modo monitor-only (`WATCHTOWER_MONITOR_ONLY=true`), verifica atualizações diariamente às 08:00 BRT, sem auto-update. Notificações Telegram a adicionar quando o bot tiver `chat_id` configurado (item 3 do Roadmap).
+
+---
+
 ## [2.1.0] — 2026-06-04
 
 ### Firefly III — App de finanças pessoais (BRL + pt_BR)

@@ -1,0 +1,10 @@
+[Unit]
+Description=Backup diario do banco do Nextcloud (restic)
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target
