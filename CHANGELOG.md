@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.3.0] — 2026-06-06
+
+### Aria2 + AriaNg — Gerenciador de downloads DDL
+
+- **Aria2-pro**: daemon de download HTTP/FTP/torrent/magnet, porta RPC `6800`, download dir `/mnt/Hi0/Downloads/`.
+- **AriaNg**: interface web em `http://192.168.15.11:6880`. Compose em `compose/aria2/docker-compose.yml`; token RPC em `compose/aria2/.env` (gitignored).
+- Mem limit: aria2 512 MB · ariang 64 MB. Ambos `restart: unless-stopped`.
+
+### Syncthing — `.obsidian/` excluído da Bia
+
+- `.stignore` criado em `/data/obsidian/.stignore` (local por device, não sincroniza) com padrão `**/.obsidian`.
+- Pastas `.obsidian/` deletadas da Bia após backup em `/mnt/Sa2/Backup/.obsidian-vault-backup-2026-06-06`.
+- Elimina os conflitos recorrentes de `appearance.json` que chegavam na Anna.
+
+### Jellyfin — novos animes adicionados
+
+- **Sousou no Frieren — 2ª Temporada**: pasta `Season 02/` criada, E01–E10 com nomenclatura `S02Exx.mkv`.
+- **Yuusha-kei ni Shosu**: E05–E12 adicionados (ep 04 pendente via AriaNg).
+- **Monogatari Off & Monster Season**: S01E06.5 (793 MB) recuperado de overlay do container e adicionado.
+
+---
+
 ## [2.2.0] — 2026-06-06
 
 ### Backup PostgreSQL do Nextcloud + Watchtower

@@ -1,0 +1,27 @@
+services:
+  aria2:
+    image: p3terx/aria2-pro
+    container_name: aria2
+    restart: unless-stopped
+    mem_limit: 512m
+    network_mode: host
+    environment:
+      - RPC_SECRET=${RPC_SECRET}
+      - RPC_PORT=6800
+      - DOWNLOAD_DIR=/downloads
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/Sao_Paulo
+      - DISK_CACHE=64M
+      - IPV6_MODE=false
+    volumes:
+      - /mnt/Hi0/Downloads:/downloads
+      - /home/bia/homelab/compose/aria2/config:/config
+
+  ariang:
+    image: p3terx/ariang
+    container_name: ariang
+    restart: unless-stopped
+    mem_limit: 64m
+    ports:
+      - "6880:6880"
