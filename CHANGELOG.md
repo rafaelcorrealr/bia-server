@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.4.0] — 2026-06-29
+
+### Firefly III removido — substituído por WY Finance (app próprio na Anna)
+
+- Containers `firefly_iii` e `firefly_db` parados e removidos
+- Volumes `firefly_firefly_db` e `firefly_firefly_upload` deletados
+- Timer systemd `backup-firefly-db.timer` desativado e removido
+- Arquivos removidos: `compose/firefly/`, `scripts/backup-firefly-db.sh`, `system/backup-firefly-db.{timer,service}`
+
+---
+
 ## [2.3.0] — 2026-06-06
 
 ### Aria2 + AriaNg — Gerenciador de downloads DDL
