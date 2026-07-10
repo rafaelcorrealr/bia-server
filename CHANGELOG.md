@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.5.0] — 2026-07-09
+
+### ConFin Bot — migração para Bia + API JSON + N8N workflow
+
+- ConFin containerizado: `Dockerfile` (python:3.12-slim + libzbar0), porta `8765`, `TZ=America/Sao_Paulo`, dados em `/DATA/AppData/confin/data/`
+- API JSON: `app/routers/api.py` — `GET /api/contas`, `/api/categorias`, `POST /api/lancamentos`, `POST /api/nfce/parse-image`; auth Bearer via `CONFIN_API_TOKEN`
+- N8N: workflow polling `getUpdates` (nós 1–7); nós 8–16 pendentes
+
+---
+
 ## [2.4.0] — 2026-06-29
 
 ### Firefly III removido — substituído por WY Finance (app próprio na Anna)
