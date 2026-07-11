@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.7.0] — 2026-07-11
+
+### Download Bot no Telegram (@MaestroTribalBot)
+
+- Workflow N8N "Download Bia" reconstruído via API (14 nós, ativo) com bot dedicado — sem conflito de getUpdates com o ConFin (@Kuro8Bot)
+- Roteamento por tipo de link: `t.me/` → SSH tdl · `magnet:`/`.torrent` → qBittorrent (cookie SID do login) · `http(s)` → curl com UA Chrome em background
+- Galho de erro em cada rota: bot responde "❌ ... falhou: <motivo>"
+- Downloads em `/mnt/Hi0/Downloads/`; polling 5s + `timeout=1` + `allowed_updates` explícito
+- Testes end-to-end pendentes (Todoist 12/07)
+
 ## [2.6.0] — 2026-07-11
 
 ### ConFin Bot completo (Telegram + app) e sync de transcripts p/ widget de tokens
