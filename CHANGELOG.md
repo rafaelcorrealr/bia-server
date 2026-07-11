@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.9.0] — 2026-07-11
+
+### Transcrição de Cursos — escopo final + fila ativa
+
+- Sa1 incluído no escopo (confirmado pelo Werus): fila unificada **2472 vídeos, 796,1h, 39 cursos**
+- Monitor de progresso: nota `📊 Progresso.md` regravada a cada vídeo + página web via workflow N8N `/webhook/transcricao`
+- Fila batch **ligada** via `transcricao-cursos.service` (systemd, enabled, `MemoryMax=2G`, `Nice=19`) — processando 796h em background
+
+### ConFin — deploy do commit `f879e03`
+
+- `git pull` + rebuild + recriação via `casaos-cli app-management apply` — ⚠️ `docker restart` sozinho **não troca a imagem** (gotcha novo)
+- Novo endpoint `GET /api/resumo` validado (200 c/ token, 401 sem) — alimenta o widget financeiro da Anna
+
 ## [2.8.0] — 2026-07-11
 
 ### Suwayomi (leitor de mangás)

@@ -18,6 +18,7 @@ Servidor doméstico rodando sobre Ubuntu Server 24.04, gerenciado com Docker Com
 | [Apache Tika](compose/nextcloud/) | OCR e indexação de texto completo (integrado ao Nextcloud) | 9998 |
 | [Aria2 + AriaNg](compose/aria2/) | Downloads DDL com WebUI | 6800 / 6880 |
 | ConFin | Controle financeiro + bot NFC-e no Telegram ([repo próprio](https://github.com/rafaelcorrealr/confin)) | 8765 |
+| Suwayomi | Leitor/downloader de mangás (extensões Mihon, offline) | 4567 |
 
 ## Hardware
 
