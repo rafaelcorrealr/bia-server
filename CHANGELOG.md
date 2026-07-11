@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.8.0] — 2026-07-11
+
+### Suwayomi (leitor de mangás)
+
+- App CasaOS `suwayomi` (`ghcr.io/suwayomi/suwayomi-server:stable`, :4567, 1GB RAM, CBZ); biblioteca em `/mnt/Se0/30-Mangás(Suwayomi)/`
+- Gotcha: DNS do roteador não resolve `github.com` na porta 80 (Azure IP sem HTTP) → `dns: [1.1.1.1, 8.8.8.8]` no compose; IPv6 dos containers desabilitado (quebrado)
+- Índice Keiyoushi (1356 extensões, 106 pt-BR) + MANGA Plus instalada; e2e validado (download de capítulo pt-BR)
+
+### Transcrição de Cursos (handoff Anna → Bia)
+
+- faster-whisper `small` int8 + VAD, CPU-only (venv `/home/bia/transcricao/`); piloto a 4-4,7x tempo real
+- Inventário: 2472 vídeos / 796h (Se0 + Sa1, que não era backup como se pensava) em `inventario.tsv`
+- Cofre Obsidian novo "Transcrições" (curso/módulo/aula, propriedade `revisao`), sincronizado via Syncthing (share "Obsidian" existente) com Anna/C85/Tablet-SE
+- Monitor de progresso: nota `📊 Progresso.md` no cofre + página web via workflow N8N (`/webhook/transcricao`)
+- Fila batch (`transcricao-cursos.service`) pronta, aguardando validação de qualidade do piloto
+
 ## [2.7.0] — 2026-07-11
 
 ### Download Bot no Telegram (@MaestroTribalBot)
