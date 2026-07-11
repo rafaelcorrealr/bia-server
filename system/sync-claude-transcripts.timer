@@ -1,0 +1,11 @@
+[Unit]
+Description=Timer: sync-claude-transcripts a cada 30min
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=30min
+Persistent=true
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,12 @@
+[Unit]
+Description=Sincroniza transcripts do Claude Code (Bia) para staging Syncthing (widget de tokens na Anna)
+After=network-online.target local-fs.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=bia
+Group=bia
+Nice=10
+IOSchedulingClass=idle
+ExecStart=/home/bia/homelab/scripts/sync-claude-transcripts.sh

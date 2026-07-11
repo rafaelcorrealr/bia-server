@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.6.0] — 2026-07-11
+
+### ConFin Bot completo (Telegram + app) e sync de transcripts p/ widget de tokens
+
+**ConFin (repo confin, commit `5429942`):**
+- Fluxo NFC-e no app web: página `/nfce` (foto ou link do QR → confirmação com itens editáveis → grava)
+- Itens da nota: tabela `lancamento_itens` + coluna `nfce_chave` com dedup (409 "cupom já lançado")
+- `app/nfce.py`: parsing NFC-e compartilhado; endpoint novo `POST /api/nfce/parse-url` (fallback p/ QR ilegível)
+- Histórico com expandível "ver itens"; `PRAGMA foreign_keys=ON` por conexão (cascade de itens)
+
+**N8N — workflow "Project ConFin" (19 nós, ativo):**
+- Reconstruído via API REST após perda do trabalho não salvo; polling 5s + `timeout=1`
+- Fixes: thumbnail do Telegram (`photo[last]`), botões inline mortos (`allowed_updates` preso — agora explícito), galho de erro do parse-image pede o link, galho de erro do POST avisa cupom duplicado
+- ⚠️ Bot @Kuro8Bot compartilhado com "Download Bia" — nunca ativar os dois juntos
+
+**Sync transcripts Claude Bia→Anna (widget de tokens):**
+- Pasta Syncthing `claude-bia` (send-only) + `scripts/sync-claude-transcripts.sh` + timer systemd 30min
+- Sincroniza SÓ `~/.claude/projects/` (nunca credenciais); units versionadas em `system/`
+
 ## [2.5.0] — 2026-07-09
 
 ### ConFin Bot — migração para Bia + API JSON + N8N workflow

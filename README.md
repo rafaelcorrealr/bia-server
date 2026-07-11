@@ -16,6 +16,8 @@ Servidor doméstico rodando sobre Ubuntu Server 24.04, gerenciado com Docker Com
 | [Scrutiny](compose/scrutiny/) | Monitoramento S.M.A.R.T. dos discos rígidos | 38080 |
 | [MySpeed](compose/myspeed/) | Histórico de velocidade de internet | 5216 |
 | [Apache Tika](compose/nextcloud/) | OCR e indexação de texto completo (integrado ao Nextcloud) | 9998 |
+| [Aria2 + AriaNg](compose/aria2/) | Downloads DDL com WebUI | 6800 / 6880 |
+| ConFin | Controle financeiro + bot NFC-e no Telegram ([repo próprio](https://github.com/rafaelcorrealr/confin)) | 8765 |
 
 ## Hardware
 
