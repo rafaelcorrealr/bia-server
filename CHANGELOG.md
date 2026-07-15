@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.10.1] — 2026-07-14
+
+### Transcrição de Cursos — fix loop infinito de OOM + tuning de prioridade/threads
+
+- **Bug crítico**: `transcricao-cursos.service` preso havia 2h+ num loop de OOM-kill (153 restarts) no mesmo vídeo de 2h51min — `MemoryMax=2G` estourava durante `model.transcribe`; SIGKILL não é capturável pelo script, então a fila nunca marcava falha e reiniciava pra sempre.
+- **Fix**: `MemoryMax` `2G→6G`; novo `falhas.json` no `transcrever_fila.py` — contador de tentativas persistido *antes* do `transcribe()` (sobrevive a SIGKILL), pula o vídeo automaticamente após 2 falhas seguidas em vez de travar a fila inteira.
+- **Tuning de performance** (a pedido do Werus): `Nice` `19→-10`, `IOSchedulingClass` `idle→best-effort` `IOSchedulingPriority=0`, `cpu_threads` do faster-whisper `~4→20` (era o real gargalo, não a prioridade). RAM mantida conservadora (`MemoryMax=6G`) de propósito — é o único recurso que pode travar o host.
+
 ## [2.10.0] — 2026-07-14
 
 ### ConFin — deploy `60ee693` + migração N8N (Caixa de Pendências) + feature no dashboard
