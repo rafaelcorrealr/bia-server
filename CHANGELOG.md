@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.10.0] — 2026-07-14
+
+### ConFin — deploy `60ee693` + migração N8N (Caixa de Pendências) + feature no dashboard
+
+- **Deploy** do commit `60ee693` (pull da Anna): parser de notificação bancária (`/api/notificacao/parse-text`), itens em qualquer lançamento, nome fantasia de cartão e **Caixa de Pendências**. Rebuild via `docker compose up -d --build` (⚠️ `docker restart` não troca imagem); tabela `lancamentos_pendentes` criada no boot.
+- **Workflow N8N "Project ConFin" migrado (19 → 11 nós)**: foto/link → parse → `POST /api/pendentes` → "🧾 Recebido, confirme no app". Removida a máquina de botões/callback; confirmação agora na tela `/pendentes`. Aplicado via API (backup do fluxo antigo salvo).
+- **Feature no dashboard do ConFin** (repo confin, commit `5f4ccba`): aviso "!" vermelho de pendências no card de Atividade recente (alterna recentes ↔ pendências) e no nav.
+
+---
+
 ## [2.9.0] — 2026-07-11
 
 ### Transcrição de Cursos — escopo final + fila ativa
