@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.11.2] — 2026-07-16
+
+### Download Bot — aviso para arquivo enviado/encaminhado
+
+- Novo galho **`arquivo`** no workflow (15→16 nós): mensagem com mídia mas **sem texto** (documento/vídeo/áudio/voz/animação — arquivo enviado ou encaminhado) → reply "📎 Recebi um arquivo, mas não dá pra baixar assim (limite 20 MB da API de bots). Me mande o LINK t.me/… da mensagem." Antes era silenciosamente ignorada (`if (!text) continue`).
+- **Motivo**: arquivo encaminhado chega sem `text`, só com `document` + `forward_origin`. A API de bot do Telegram não baixa arquivos > 20 MB; o `tdl` baixa, mas precisa do link `t.me/…`, não do arquivo.
+- Deploy via API n8n, offset preservado. Validado ao vivo (reply confirmado).
+
+---
+
 ## [2.11.1] — 2026-07-16
 
 ### Download Bot — galhos tdl/magnet validados, DDL desativado + rede de proteção
