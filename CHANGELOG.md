@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.11.0] — 2026-07-15
+
+### ConFin — comprovantes de pagamento (Pix/boleto) + deduplicação por ID de transação
+
+- **Comprovantes via Telegram** (imagem OU PDF): novo `app/comprovante.py` (OCR tesseract-por p/ foto, `pdftotext`/poppler p/ PDF, fallback OCR se escaneado) + parser que extrai valor/data/tipo/contraparte, calibrado em 3 comprovantes reais (Inter Pix, MP boleto, MP Pix). Endpoint único `POST /api/imagem/triagem` (QR NFC-e → comprovante → senão guarda como imagem) cria a pendência server-side.
+- **Caixa de imagens**: arquivo não reconhecido vai p/ `/data/inbox` e aparece no grupo "Imagens p/ revisar" em `/pendentes`; o comprovante fica anexado à pendência (thumbnail/📄) e visível no form de confirmação.
+- **Deduplicação**: extrai o id único da transação (Pix E2E `E0041…` / código de autenticação / nº do comprovante); índice único parcial em `lancamentos_pendentes.transacao_id` (à prova da corrida do poll de 5s) + grava no `nfce_chave` do lançamento ao confirmar — reenvio/corrida nunca duplicam; bot responde "♻️ já está na caixa". De brinde, conserta a dedup de NFC-e confirmada.
+- **N8N** "Project ConFin" (11→10 nós): `Offset e classificar` captura `document` (PDF), ramo foto → `HTTP triagem`, "Enviar recebido" com resposta 3-vias (recebido/imagem/duplicado).
+- Dockerfile: `tesseract-ocr-por` + `poppler-utils`; `pytesseract` no requirements. **51 testes verdes**. Commit confin `e8afab6` (pushed).
+
+---
+
 ## [2.10.1] — 2026-07-14
 
 ### Transcrição de Cursos — fix loop infinito de OOM + tuning de prioridade/threads
