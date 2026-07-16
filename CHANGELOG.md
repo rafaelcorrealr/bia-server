@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.11.1] — 2026-07-16
+
+### Download Bot — galhos tdl/magnet validados, DDL desativado + rede de proteção
+
+- **Verificação ao vivo**: workflow "Download Bia" (n8n `qLUHOaZrAqtqXwGR`, `@MaestroTribalBot`) ativo, polling 5s confirmado (conexões n8n→api.telegram.org observadas). Runtime deps OK: tdl v0.20.3 autenticado, qBittorrent login, sshd, `/mnt/Hi0/Downloads/` gravável.
+- **Galho t.me→tdl**: validado por 2 downloads reais do dia (Jujutsu Kaisen 199 MB + Fate/Zero 244 MB).
+- **Galho magnet→qBittorrent**: validado ao vivo (torrent adicionado via API, savepath `/downloads` OK).
+- **Galho DDL http→curl DESATIVADO** (Werus não usa — sites de DDL só têm anúncio): Code node não classifica mais `ddl`; nós SSH curl ficam dormentes.
+- **Rede de proteção**: qualquer envio que não seja `t.me`/`magnet` → 4ª saída do Switch (`nao_suportado`) → novo nó Telegram "Reply nao suportado" ("❌ Não reconheci esse envio…", nada é baixado). Deploy via API n8n (14→15 nós), offset preservado, reativação limpa deactivate→activate.
+- **Diagnóstico**: execuções "error" no histórico do n8n = `ECONNRESET` intermitente no getUpdates (~12/dia de ~17k polls); `saveDataSuccessExecution: none` faz só erros aparecerem — não é quebra.
+
+---
+
 ## [2.11.0] — 2026-07-15
 
 ### ConFin — comprovantes de pagamento (Pix/boleto) + deduplicação por ID de transação
