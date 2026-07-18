@@ -1,5 +1,26 @@
 # Changelog
 
+## [2.12.0] — 2026-07-18
+
+### Download Bot — operar downloads/qBittorrent pelo Telegram
+
+Quatro comandos novos no `@MaestroTribalBot` (workflow `Download Bia`, 16→24 nós, Switch 5→9 saídas):
+
+- **`/lista`** (`/ls`, `/downloads`) — inventário de `/mnt/Hi0/Downloads/` via `find`+`awk` (40 maiores + total + espaço livre).
+- **`/status`** (`/torrents`) — taxa ⬆️/⬇️ global (soma dos torrents) + lista com estado (⬆️/💤/⏸️/⬇️), %, ratio e upload de cada.
+- **`/parar`** / **`/parar todos`** / **`/parar <trecho>`** — pausa seeding de todos (`hashes=all`) ou por substring do nome.
+- **`/retomar`** — simétrico (`torrents/start`).
+
+Detalhes técnicos:
+- Cada galho = nó **SSH** roda `curl`+`jq` no host (`localhost:8181`, login+consulta numa tacada, sem plumbing de cookie no n8n) → nó **Reply** manda o `stdout`. `/status`+`/parar`+`/retomar` compartilham 1 Reply-ok (`{{ $json.stdout }}`) + 1 Reply-erro.
+- Code node extrai `arg` sanitizado (whitelist `[A-Za-z0-9 ._-]`, ≤60 chars) → anti-injeção no shell (bot single-user, mas prevenido).
+- qBittorrent **v5.0.4** (WebAPI 2.11.2): endpoints nativos v5 `torrents/stop` / `torrents/start`.
+- Deploy via API n8n com `staticData.offset` preservado + deactivate→activate (re-registra cron). Scripts validados no host antes de subir. Validado ao vivo.
+- ⚠️ Achado: 3 dos 4 torrents salvam em `/app/qBittorrent/downloads` (caminho interno do container, fora do host — dado some se recriar).
+- Organização/renomear de mídia: motor será **Sonarr** (decidido, planejado, **não implementado** nesta versão).
+
+---
+
 ## [2.11.2] — 2026-07-16
 
 ### Download Bot — aviso para arquivo enviado/encaminhado
