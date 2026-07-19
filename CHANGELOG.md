@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.13.0] — 2026-07-19
+
+### Download Bot — confirmação/rename do nome + fim das mensagens duplicadas
+
+Duas mudanças no `@MaestroTribalBot` (workflow `Download Bia`, **24→27 nós**, Switch 9→10 saídas):
+
+**Regra de nome (baixa já → renomeia no fim)** — ao mandar um `t.me/…`:
+- O download começa **destacado em background** e o bot detecta o nome real, já **limpo** do prefixo `<chatid>_<msgid>_`, e pergunta o nome final.
+- **OK** mantém o nome limpo; um **novo nome** → bot **re-confirma** (`✏️ Renomear pra «…»?`) → guarda → **renomeia o arquivo ao terminar** o download.
+- Estado: `staticData.pending` no n8n (`await_name`→`await_confirm`, TTL 2h) + `~/.local/state/tg-dl/<job>/final` (nome em base64, gravado pelo nó "SSH nome"; à prova de acento/injeção).
+- **Preservação de extensão**: nome sem extensão de mídia conhecida reusa a original (ex.: `Noragami S01E12` → `Noragami S01E12.mp4`).
+
+**Fim das mensagens duplicadas** (bug reportado):
+- Causa: `tdl dl` bloqueante segurava a execução do n8n por todo o download → o `offset` só persiste no fim → o Telegram reservia as mensagens e cada poll reprocessava (re-download + eco).
+- Correção: novo script host **`scripts/tg-dl.sh`** em modo *launcher* dispara um worker `setsid` destacado e retorna em <1s; a execução do n8n fecha rápido, o offset persiste, o eco some.
+
+Novos nós: Code "Store pending", SSH "SSH nome", Telegram "Reply naming". Deploy via API com offset preservado, deactivate→activate. Validado ao vivo (Noragami: `AnV-12.mp4` → `Noragami-S01E12.mp4`, uma mensagem só).
+
 ## [2.12.0] — 2026-07-18
 
 ### Download Bot — operar downloads/qBittorrent pelo Telegram
