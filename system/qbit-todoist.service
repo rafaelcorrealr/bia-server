@@ -1,0 +1,10 @@
+[Unit]
+Description=qBittorrent -> Todoist (cria tarefa por torrent concluido)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=bia
+Group=bia
+ExecStart=/home/bia/.local/bin/qbit-todoist-poll.sh

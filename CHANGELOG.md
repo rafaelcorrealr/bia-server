@@ -1,5 +1,32 @@
 # Changelog
 
+## [2.14.0] — 2026-07-21
+
+### Download Bot — multi-link + intervalo (grupos com tópicos) + encaminhado + robustez
+
+`tg-dl.sh` reescrito com 3 modos via payload `--job` base64: **single** (com rename), **multi** (vários links), **range** (intervalo). Classificador n8n ("Offset e classificar") reescrito.
+
+- **Vários links numa mensagem** → baixa todos (`tdl dl -u ... -u ...`).
+- **Intervalo** (o caso "temporada/volumes inteiros"): 2+ links do mesmo canal → o bot pergunta "baixar tudo no intervalo? OK / só esses"; OK → `tdl chat export -c <id> --topic <t> -T id -i <min> -i <max>` + `dl -f`. Detecta **grupos com tópicos** (`t.me/c/<id>/<tópico>/<msg>`): a mensagem é o último número, o tópico vai via `--topic`.
+- **Encaminhado**: reconstrói o `t.me/…` do metadado (`forward_origin`) e baixa (canais que permitem encaminhar).
+- Nomes de lote limpos (`--template '{{ filenamify .FileName }}'`); mensagem final resumida (12 nomes + "e mais N"); 1 tarefa Todoist por lote.
+- **Robustez**: `flock` serializa o `tdl` (banco bolt = 1 processo — antes 2 downloads simultâneos falhavam) + dedup no launcher (corrida de polls concorrentes não dispara o mesmo link 2×).
+- Validado: 16/16 + 8/8 testes unitários (via `docker exec n8n node`); ao vivo baixou 252 capítulos de Beelzebub por intervalo.
+
+### qBittorrent — resgate de dados + save path
+
+- Movidos 12 GB (3 torrents) da camada efêmera do container (`/app/qBittorrent/downloads`) → `/downloads` (host) via `setLocation`, seeding intacto.
+- **Save path padrão corrigido** (`/app/qBittorrent/downloads` → `/downloads`) via `setPreferences` — evita novos torrents caírem na camada efêmera.
+
+### Bot → Todoist (scaffold — pendente token)
+
+- `scripts/todoist-task.sh` (helper REST v2, Inbox + label HOMELAB), `scripts/qbit-todoist-poll.sh` + `system/qbit-todoist.{service,timer}` (timer de sistema, 3 min, baseline na 1ª execução). `tg-dl.sh` cria tarefa ao fim do download.
+- ⚠️ Requer o token do Todoist em `~/.config/tg-dl/todoist-token` (Werus gera).
+
+### Suwayomi — fonte local (Beelzebub)
+
+- Configurada `server.localSourcePath` (reusa o mount `/mnt/Se0/30-Mangás(Suwayomi)` → `.../downloads/local`); 252 `.cbz` de Beelzebub copiados p/ `local/Beelzebub/`; manga na biblioteca (252 caps, ordenados).
+
 ## [2.13.0] — 2026-07-19
 
 ### Download Bot — confirmação/rename do nome + fim das mensagens duplicadas

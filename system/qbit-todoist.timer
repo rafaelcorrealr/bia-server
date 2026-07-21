@@ -1,0 +1,10 @@
+[Unit]
+Description=Checa torrents concluidos no qBittorrent a cada 3 min
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=3min
+Unit=qbit-todoist.service
+
+[Install]
+WantedBy=timers.target
