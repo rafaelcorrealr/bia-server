@@ -33,6 +33,62 @@ tg_send() {  # tg_send <chat_id> <text>
     --data-urlencode "chat_id=${chat}" --data-urlencode "text=${text}" >/dev/null 2>&1
 }
 
+# manda e DEVOLVE o message_id (pra editar depois). Em dry-run devolve um id fake.
+tg_send_id() {  # tg_send_id <chat> <text>  -> echo <message_id>
+  local chat="$1" text="$2" tok resp
+  if [ -n "${TG_DL_SEND_LOG:-}" ]; then
+    printf '>>> SEND [%s]\n%s\n' "$chat" "$text" >>"$TG_DL_SEND_LOG"
+    printf '%s' "$(( (RANDOM % 90000) + 10000 ))"; return 0
+  fi
+  tok="$(cat "$TOKEN_FILE" 2>/dev/null)"; [ -z "$tok" ] && return 0
+  [ -z "$chat" ] && return 0
+  resp="$(curl -s --max-time 25 "$API/bot${tok}/sendMessage" \
+    --data-urlencode "chat_id=${chat}" --data-urlencode "text=${text}" 2>/dev/null)"
+  printf '%s' "$resp" | python3 -c 'import sys,json
+try: print(json.load(sys.stdin).get("result",{}).get("message_id",""))
+except Exception: pass' 2>/dev/null
+}
+
+# edita uma msg já enviada; se não houver message_id, cai pra mandar nova.
+tg_edit() {  # tg_edit <chat> <msg_id> <text>
+  local chat="$1" mid="$2" text="$3" tok
+  [ -z "$mid" ] && { tg_send "$chat" "$text"; return; }
+  if [ -n "${TG_DL_SEND_LOG:-}" ]; then
+    printf '>>> EDIT [%s#%s]\n%s\n' "$chat" "$mid" "$text" >>"$TG_DL_SEND_LOG"; return 0
+  fi
+  tok="$(cat "$TOKEN_FILE" 2>/dev/null)"; [ -z "$tok" ] && return 0
+  curl -s -o /dev/null --max-time 25 "$API/bot${tok}/editMessageText" \
+    --data-urlencode "chat_id=${chat}" --data-urlencode "message_id=${mid}" \
+    --data-urlencode "text=${text}" >/dev/null 2>&1
+}
+
+# conta arquivos novos (fora .tmp) surgidos em $DL_DIR desde $S/before.lst
+count_new() {  # count_new <S>  -> echo <n>
+  local S="$1" c=0 f
+  while IFS= read -r f; do
+    [ -n "$f" ] && case "$f" in *.tmp) ;; *) c=$((c+1));; esac
+  done < <(comm -13 "$S/before.lst" <(ls -1 "$DL_DIR" 2>/dev/null | sort))
+  printf '%s' "$c"
+}
+
+# loop de progresso de lote: manda "📥 0/N…" e edita "k/N" enquanto o tdl (DPID) roda.
+# tdl não expõe % legível -> progresso por CONTAGEM de arquivos. Grava o msg_id em $S/pmsg.
+batch_progress() {  # batch_progress <chat> <S> <N> <dpid>
+  local CHAT="$1" S="$2" N="$3" DPID="$4"
+  local INTERVAL="${TG_DL_PROGRESS_INTERVAL:-60}" mid k last=-1
+  mid="$(tg_send_id "$CHAT" "📥 Baixando 0/${N}…")"
+  printf '%s' "$mid" >"$S/pmsg"
+  while kill -0 "$DPID" 2>/dev/null; do
+    sleep "$INTERVAL"
+    kill -0 "$DPID" 2>/dev/null || break
+    k="$(count_new "$S")"
+    if [ "$k" != "$last" ]; then
+      tg_edit "$CHAT" "$mid" "📥 Baixando ${k}/${N}…"
+      last="$k"
+    fi
+  done
+}
+
 clean_name() { sed -E 's/^[0-9]+_[0-9]+_//' <<<"$1"; }   # tira prefixo "<dialog>_<msg>_"
 
 todoist_for() {  # todoist_for <path>  — cria tarefa no Todoist (ignora erro/sem-token)
@@ -109,13 +165,14 @@ Nome final? Responda OK pra manter, ou mande o novo nome (com extensão)."
 # ---------------------------------------------------------------- batch: comum (multi/range)
 finish_batch() {  # finish_batch <chat> <job> [descricao]   (usa $S/before.lst)
   local CHAT="$1" JOB="$2" DESC="${3:-download}" S="$STATE_ROOT/$JOB"
+  local PMSG=""; [ -f "$S/pmsg" ] && PMSG="$(cat "$S/pmsg")"   # msg de progresso p/ editar no fim
   local newf=() f
   while IFS= read -r f; do
     [ -n "$f" ] && case "$f" in *.tmp) ;; *) newf+=("$f");; esac
   done < <(comm -13 "$S/before.lst" <(ls -1 "$DL_DIR" 2>/dev/null | sort))
   local n="${#newf[@]}"
   if [ "$n" -eq 0 ]; then
-    tg_send "$CHAT" "⚠️ Terminei mas não vi arquivos novos. Veja o log do job ($JOB)."
+    tg_edit "$CHAT" "$PMSG" "⚠️ Terminei mas não vi arquivos novos. Veja o log do job ($JOB)."
     echo "done-empty" >"$S/state"; return 0
   fi
   # lista resumida (máx 12 nomes — evita estourar o limite de 4096 chars do Telegram)
@@ -128,7 +185,7 @@ finish_batch() {  # finish_batch <chat> <job> [descricao]   (usa $S/before.lst)
   "$TODOIST_BIN" "📥 Organizar: $n arquivo(s) ($DESC)" "Origem: Telegram (tdl) — lote de $n arquivo(s)
 Pasta: $DL_DIR
 Ex.: $(clean_name "${newf[0]}")" >/dev/null 2>&1 || true
-  tg_send "$CHAT" "✅ Baixei ${n} arquivo(s):
+  tg_edit "$CHAT" "$PMSG" "✅ Baixei ${n} arquivo(s):
 ${list}"
   echo "done" >"$S/state"; return 0
 }
@@ -138,11 +195,14 @@ worker_multi() {  # <chat> <job> <link...>
   local CHAT="$1" JOB="$2"; shift 2
   local S="$STATE_ROOT/$JOB"; mkdir -p "$S"
   ls -1 "$DL_DIR" 2>/dev/null | sort >"$S/before.lst"
-  local args=() l; for l in "$@"; do args+=(-u "$l"); done
+  local N=$# args=() l; for l in "$@"; do args+=(-u "$l"); done
   echo "run" >"$S/state"
-  tg_send "$CHAT" "📥 Baixando ${#} arquivo(s)…"
-  ( flock 200; "$TDL_BIN" dl "${args[@]}" -d "$DL_DIR" --template "$CLEAN_TMPL" ) 200>"$STATE_ROOT/.tdl.lock" >"$S/tdl.log" 2>&1
-  finish_batch "$CHAT" "$JOB" "multi-link"
+  exec 200>"$STATE_ROOT/.tdl.lock"; flock 200            # serializa o tdl (bolt = 1 processo por vez)
+  "$TDL_BIN" dl "${args[@]}" -d "$DL_DIR" --template "$CLEAN_TMPL" >"$S/tdl.log" 2>&1 &
+  local DPID=$!
+  batch_progress "$CHAT" "$S" "$N" "$DPID"               # 📥 0/N → k/N (edita a mesma msg)
+  wait "$DPID"; flock -u 200
+  finish_batch "$CHAT" "$JOB" "multi-link"               # edita p/ ✅ final
 }
 
 # ---------------------------------------------------------------- worker: range (intervalo)
@@ -162,9 +222,10 @@ worker_range() {  # <chat> <job> <tgchat> <min> <max> [topic]
     echo "empty" >"$S/state"; return 1
   fi
   echo "run" >"$S/state"
-  tg_send "$CHAT" "📥 Baixando o intervalo (msg $MIN a $MAX) — ${n} arquivo(s)…"
-  "$TDL_BIN" dl -f "$S/export.json" -d "$DL_DIR" --template "$CLEAN_TMPL" >"$S/tdl.log" 2>&1
-  flock -u 200
+  "$TDL_BIN" dl -f "$S/export.json" -d "$DL_DIR" --template "$CLEAN_TMPL" >"$S/tdl.log" 2>&1 &
+  local DPID=$!
+  batch_progress "$CHAT" "$S" "$n" "$DPID"           # 📥 0/n → k/n (edita a mesma msg)
+  wait "$DPID"; flock -u 200
   finish_batch "$CHAT" "$JOB" "intervalo msg $MIN-$MAX"
 }
 

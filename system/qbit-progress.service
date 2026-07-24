@@ -1,0 +1,10 @@
+[Unit]
+Description=qBittorrent -> Telegram (progresso de download, 1 msg editada por torrent)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=bia
+Group=bia
+ExecStart=/home/bia/.local/bin/qbit-progress.sh

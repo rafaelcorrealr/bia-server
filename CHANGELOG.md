@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.15.0] — 2026-07-24
+
+### Sistema de progresso de download (Trilhas A + B)
+
+- **Trilha A — torrents (qBit → Telegram)**: novo `scripts/qbit-progress.sh` + `system/qbit-progress.{service,timer}` (system unit, `User=bia`, 1 min). Uma mensagem **editada no lugar** por torrent baixando (`⬇️ NN% · MB/s · ETA · «nome»` → `✅ 100%` e para); ocioso = silêncio. Estado em `~/.local/state/qbit-progress/track` (edita só quando muda).
+- **Trilha B — lote do Telegram (tdl)**: `scripts/tg-dl.sh` ganhou `tg_send_id`/`tg_edit`/`count_new`/`batch_progress`; os modos multi/range rodam o `tdl` em background e editam `📥 k/N` (por contagem de arquivos — tdl não expõe % legível); `finish_batch` edita a mesma msg pro `✅ Baixei N`. Single inalterado. Intervalo: `TG_DL_PROGRESS_INTERVAL` (default 60s).
+
+### Todoist ativado + backfill + etiquetas Werus+HOMELAB
+
+- Token pessoal **reaproveitado do plugin `werus-dashboard`** → `~/.config/tg-dl/todoist-token` (600). `scripts/todoist-task.sh` migrado **REST v2 → API v1** (`api.todoist.com/api/v1/tasks`) e etiquetas p/ **Werus + HOMELAB** (`TODOIST_LABELS` CSV). Agora `tg-dl.sh` **e** `qbit-todoist-poll.sh` criam tarefas de "Organizar" sozinhos.
+- Backfill: 252 `.cbz` do Beelzebub apagados (após conferir 252/252 no Suwayomi) + **16 tarefas "Organizar" agrupadas por coleção** para o conteúdo já em `/mnt/Hi0/Downloads` (55 GB, 192 entradas).
+
+### AniList integrado (rastreador "tenho/quero")
+
+- `scripts/anilist-add.sh` (GraphQL; **User-Agent de navegador p/ furar o Cloudflare 403**; `search` + `SaveMediaListEntry`; status em pt). OAuth (client 46872) → token de acesso (1 ano) em `~/.config/tg-dl/anilist-token`. Conta **MrWerus**; **8 animes baixados semeados como *Planning***. Roadmap HomeLab 2.0: Jellyseerr → Ryot → Shoko.
+
 ## [2.14.1] — 2026-07-24
 
 ### Fix hotplug de discos externos + recuperação da fila de transcrição

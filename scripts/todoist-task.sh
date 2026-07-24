@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# todoist-task.sh — cria uma tarefa no Todoist (Inbox, label HOMELAB, venc. hoje).
+# todoist-task.sh — cria uma tarefa no Todoist (Inbox, etiquetas Werus+HOMELAB, venc. hoje).
 #
 # Uso:  todoist-task.sh <content> [description]
 #
@@ -12,9 +12,9 @@ set -u
 export PATH="/usr/local/bin:/usr/bin:/bin:${PATH:-}"
 
 TOKEN_FILE="${TODOIST_TOKEN_FILE:-/home/bia/.config/tg-dl/todoist-token}"
-LABEL="${TODOIST_LABEL:-HOMELAB}"
+LABELS="${TODOIST_LABELS:-Werus,HOMELAB}"   # etiquetas em CSV (padrão: Werus + HOMELAB)
 DUE="${TODOIST_DUE:-today}"
-API="${TODOIST_API:-https://api.todoist.com/rest/v2/tasks}"
+API="${TODOIST_API:-https://api.todoist.com/api/v1/tasks}"   # API unificada v1 (REST v2 foi migrada)
 LOG="${TODOIST_LOG:-/home/bia/.local/state/tg-dl/todoist.log}"
 
 content="${1:-}"; desc="${2:-}"
@@ -23,10 +23,11 @@ tok="$(tr -d '[:space:]' <"$TOKEN_FILE" 2>/dev/null)"
 [ -z "$tok" ] && { echo "ERR sem token ($TOKEN_FILE)" >&2; exit 3; }
 
 # monta o JSON de forma segura (unicode/aspas nos nomes) via python3
-payload="$(python3 - "$content" "$desc" "$LABEL" "$DUE" <<'PY'
+payload="$(python3 - "$content" "$desc" "$LABELS" "$DUE" <<'PY'
 import json, sys
-content, desc, label, due = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
-t = {"content": content, "labels": [label]}
+content, desc, labels_csv, due = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+labels = [l.strip() for l in labels_csv.split(",") if l.strip()]
+t = {"content": content, "labels": labels}
 if desc: t["description"] = desc
 if due:  t["due_string"] = due
 print(json.dumps(t, ensure_ascii=False))
