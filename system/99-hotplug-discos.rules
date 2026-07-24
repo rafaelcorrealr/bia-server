@@ -1,0 +1,6 @@
+# Auto-mount de discos externos plugados após o boot (fstab usa nofail, então
+# systemd só tenta montar 1x no boot e nunca mais tenta se o disco não estava lá)
+ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_UUID}=="b6309b2d-42d4-4176-8067-6a6d8b0fd9b9", TAG+="systemd", ENV{SYSTEMD_WANTS}+="mnt-Hi0.mount"
+ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_UUID}=="c7d5b681-8d5f-400c-8e30-aca015599c67", TAG+="systemd", ENV{SYSTEMD_WANTS}+="mnt-Se0.mount"
+ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_UUID}=="2e478cb3-c508-411e-a442-b133fab81331", TAG+="systemd", ENV{SYSTEMD_WANTS}+="mnt-Sa1.mount"
+ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_UUID}=="fabfca61-3183-4919-aa3b-999659cda1c2", TAG+="systemd", ENV{SYSTEMD_WANTS}+="mnt-Sa2.mount"

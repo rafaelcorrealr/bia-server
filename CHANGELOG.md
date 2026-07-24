@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.14.1] — 2026-07-24
+
+### Fix hotplug de discos externos + recuperação da fila de transcrição
+
+- **Bug encontrado**: discos `Sa1`/`Sa2` (HDs USB) plugados depois do boot não montavam — fstab usa `nofail`, systemd só tenta 1x no boot. A fila de transcrição (`os.path.exists()`) leu os vídeos como sumidos e **encerrou achando que tinha terminado**, faltando na real 660 vídeos/296,7h (62,7% feito).
+- **Fix imediato**: mount manual + `systemctl restart transcricao-cursos.service`.
+- **Fix definitivo**: `/etc/udev/rules.d/99-hotplug-discos.rules` (versionado em `system/`) — dispara `ENV{SYSTEMD_WANTS}` da mount unit correspondente sempre que o udev detecta o disco (por `ID_FS_UUID`), cobrindo os 4 discos (Hi0/Se0/Sa1/Sa2). Validado com `udevadm test`, sem precisar de reboot.
+
 ## [2.14.0] — 2026-07-21
 
 ### Download Bot — multi-link + intervalo (grupos com tópicos) + encaminhado + robustez
