@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.17.0] — 2026-07-25
+
+### Comandos de download — Fases 2 e 3 + UX "toca→cola" (3 fases completas)
+
+- **Fase 2 — `/download_chat`** (baixar o chat inteiro): `scripts/tg-dl.sh` ganhou modo `chat` (`worker_chat`) + `--preview` (`preview_chat`); o classificador n8n ganhou `parseChat` (link → chat+tópico), pending `await_chat_folder` e `kind:'chatpreview'` roteando pro **nó novo `SSH preview`** (Switch saída 11). O preview roda `tdl chat export` (só mídia) com `flock -w 5` (não trava o n8n se houver download) + `timeout 100`, conta os arquivos, sugere a pasta e vira **cache** reusado no download (`.preview/<key>.json`, <30 min). Workflow 30→**31 nós**, offset preservado.
+- **UX "toca→cola"**: no Telegram, comando tocado no menu é sempre enviado na hora (limitação do cliente). Agora comando **sozinho** (sem link) seta pending `await_links` e pede "📎 manda o link"; a próxima mensagem com link é consumida (interceptor antes do guard `!isLink`). Helper `startDownload` unifica o disparo. `setMyCommands` com **13 comandos** (incluído `/download_chat`).
+- **Fase 3 — anti-colisão** (só `scripts/tg-dl.sh`): batch baixa com `BATCH_TMPL='{{ .MessageID }}_{{ filenamify .FileName }}'` (sempre único) e `dedupe_rename` remove o prefixo `<id>_` **só quando o nome limpo está livre**, mantendo-o nos que realmente colidem (nada se sobrescreve). O prefixo é validado contra o conjunto de MessageIDs do lote (`ids.lst`), então nomes legítimos tipo `2024_x.mkv` não são cortados. Resolve o **Job B** (`@AniCatBot.mp4` ×64 → 64 arquivos).
+- **Testes**: 13 cenários do classificador (`docker exec n8n node`) + 3 do anti-colisão (`tdl` falso). Werus validou ao vivo `/download_chat` e `/download_range`.
+
 ## [2.16.0] — 2026-07-25
 
 ### Organização por pasta nos lotes + comandos do bot + comandos de download explícitos

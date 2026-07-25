@@ -20,6 +20,9 @@ API="https://api.telegram.org"
 TDL_BIN="${TG_DL_TDL:-tdl}"                 # sobrescrevível p/ teste
 TODOIST_BIN="${TG_DL_TODOIST:-/home/bia/.local/bin/todoist-task.sh}"
 CLEAN_TMPL='{{ filenamify .FileName }}'     # nome sem o prefixo <dialog>_<msg>_ (modo batch)
+# batch: prefixa com MessageID (sempre único) → dedupe_rename limpa depois quando o nome está livre.
+# Resolve colisão: N mensagens com o mesmo nome não se sobrescrevem mais (ex.: sticker.webp ×8, @Bot.mp4 ×64).
+BATCH_TMPL='{{ .MessageID }}_{{ filenamify .FileName }}'
 
 tg_send() {  # tg_send <chat_id> <text>
   local chat="$1" text="$2" tok
@@ -72,6 +75,13 @@ sanitize_dir() {  # sanitize_dir <name> -> echo <safe>
   printf '%s' "${s:0:80}"
 }
 
+# chave estável do chat (mesmo valor no preview e no download → reusa o export)
+preview_key() {  # preview_key <tg> [topic]  -> echo <key>
+  local k; k="$(printf '%s' "$1" | tr -c 'A-Za-z0-9_' '_')"
+  [ -n "${2:-}" ] && k="${k}_t$2"
+  printf '%s' "$k"
+}
+
 # conta arquivos novos (fora .tmp) surgidos em <dir> desde $S/before.lst
 count_new() {  # count_new <S> [dir]  -> echo <n>
   local S="$1" dir="${2:-$DL_DIR}" c=0 f
@@ -100,6 +110,42 @@ batch_progress() {  # batch_progress <chat> <S> <N> <dpid> [dir]
 }
 
 clean_name() { sed -E 's/^[0-9]+_[0-9]+_//' <<<"$1"; }   # tira prefixo "<dialog>_<msg>_"
+
+# conjunto de MessageIDs válidos (1 por linha) p/ o dedupe_rename validar o prefixo
+msgids_from_export() {  # <export.json>
+  python3 -c "import json,sys
+try: ms=json.load(open(sys.argv[1])).get('messages',[])
+except Exception: ms=[]
+[print(m['id']) for m in ms if m.get('file') and m.get('id') is not None]" "$1" 2>/dev/null
+}
+msgids_from_links() {  # <link...>
+  python3 -c "import sys,re
+for l in sys.argv[1:]:
+    l=l.split('?')[0].split('#')[0].rstrip('/')
+    m=re.search(r'/(\d+)\$', l)
+    if m: print(m.group(1))" "$@" 2>/dev/null
+}
+
+# renomeia '<MessageID>_<nome>' -> '<nome>' quando o nome limpo está LIVRE; mantém o prefixo em
+# colisão real (nada se sobrescreve). Valida o prefixo contra o conjunto de ids (não corta '2024_x').
+dedupe_rename() {  # dedupe_rename <dir> <idsfile>
+  python3 - "$1" "$2" <<'PY'
+import sys, os, re
+d, idsfile = sys.argv[1], sys.argv[2]
+try: ids = set(x.strip() for x in open(idsfile) if x.strip())
+except OSError: ids = set()
+if not os.path.isdir(d) or not ids: sys.exit(0)
+for name in sorted(os.listdir(d)):
+    m = re.match(r'^(\d+)_(.+)$', name)
+    if not m: continue
+    mid, clean = m.group(1), m.group(2)
+    if mid not in ids or not clean: continue
+    src = os.path.join(d, name); dst = os.path.join(d, clean)
+    if os.path.exists(dst): continue          # colisão real → mantém o prefixo (nada se perde)
+    try: os.rename(src, dst)
+    except OSError: pass
+PY
+}
 
 todoist_for() {  # todoist_for <path>  — cria tarefa no Todoist (ignora erro/sem-token)
   local p="$1" sz
@@ -212,12 +258,14 @@ worker_multi() {  # <chat> <job> <subdir> <link...>
   fi
   ls -1 "$DDIR" 2>/dev/null | sort >"$S/before.lst"
   local N=$# args=() l; for l in "$@"; do args+=(-u "$l"); done
+  msgids_from_links "$@" >"$S/ids.lst"                    # p/ o dedupe_rename validar o prefixo
   echo "run" >"$S/state"
   exec 200>"$STATE_ROOT/.tdl.lock"; flock 200            # serializa o tdl (bolt = 1 processo por vez)
-  "$TDL_BIN" dl "${args[@]}" -d "$DDIR" --template "$CLEAN_TMPL" >"$S/tdl.log" 2>&1 &
+  "$TDL_BIN" dl "${args[@]}" -d "$DDIR" --template "$BATCH_TMPL" >"$S/tdl.log" 2>&1 &
   local DPID=$!
   batch_progress "$CHAT" "$S" "$N" "$DPID" "$DDIR"       # 📥 0/N → k/N (edita a mesma msg)
   wait "$DPID"; flock -u 200
+  dedupe_rename "$DDIR" "$S/ids.lst"                      # tira o prefixo <id>_ quando o nome está livre
   finish_batch "$CHAT" "$JOB" "multi-link${SUBDIR:+ → $SUBDIR}" "$DDIR"   # edita p/ ✅ final
 }
 
@@ -242,15 +290,95 @@ worker_range() {  # <chat> <job> <tgchat> <min> <max> [topic] [subdir]
     tg_send "$CHAT" "🤷 Não achei mídia no intervalo (msg $MIN a $MAX)."
     echo "empty" >"$S/state"; return 1
   fi
+  msgids_from_export "$S/export.json" >"$S/ids.lst"  # p/ o dedupe_rename validar o prefixo
   echo "run" >"$S/state"
-  "$TDL_BIN" dl -f "$S/export.json" -d "$DDIR" --template "$CLEAN_TMPL" >"$S/tdl.log" 2>&1 &
+  "$TDL_BIN" dl -f "$S/export.json" -d "$DDIR" --template "$BATCH_TMPL" >"$S/tdl.log" 2>&1 &
   local DPID=$!
   batch_progress "$CHAT" "$S" "$n" "$DPID" "$DDIR"   # 📥 0/n → k/n (edita a mesma msg)
   wait "$DPID"; flock -u 200
+  dedupe_rename "$DDIR" "$S/ids.lst"                 # tira o prefixo <id>_ quando o nome está livre
   finish_batch "$CHAT" "$JOB" "intervalo msg $MIN-$MAX${SUBDIR:+ → $SUBDIR}" "$DDIR"
 }
 
+# ---------------------------------------------------------------- worker: chat (chat inteiro)
+worker_chat() {  # <chat> <job> <tgchat> [topic] [subdir]
+  local CHAT="$1" JOB="$2" TG="$3" TOPIC="${4:-}" SUBDIR="${5:-}"
+  local S="$STATE_ROOT/$JOB"; mkdir -p "$S"
+  local DDIR="$DL_DIR"                               # pasta destino (subpasta se pedida)
+  if [ -n "$SUBDIR" ]; then
+    SUBDIR="$(sanitize_dir "$SUBDIR")"
+    [ -n "$SUBDIR" ] && { DDIR="$DL_DIR/$SUBDIR"; mkdir -p "$DDIR"; }
+  fi
+  ls -1 "$DDIR" 2>/dev/null | sort >"$S/before.lst"
+  local key PF EF texp n age
+  key="$(preview_key "$TG" "$TOPIC")"; PF="$STATE_ROOT/.preview/$key.json"; EF="$S/export.json"
+  echo "export" >"$S/state"
+  exec 200>"$STATE_ROOT/.tdl.lock"; flock 200        # serializa o tdl (segura export + dl)
+  age=999999; [ -f "$PF" ] && age=$(( $(date +%s) - $(stat -c %Y "$PF" 2>/dev/null || echo 0) ))
+  if [ -f "$PF" ] && [ "$age" -lt 1800 ]; then
+    cp "$PF" "$EF"                                   # reusa o preview recente (não exporta 2x)
+  else
+    texp=(); [ -n "$TOPIC" ] && texp=(--topic "$TOPIC")
+    "$TDL_BIN" chat export -c "$TG" "${texp[@]}" -o "$EF" >"$S/export.log" 2>&1
+  fi
+  n="$(python3 -c "import json,sys;print(len(json.load(open('$EF')).get('messages',[])))" 2>/dev/null || echo 0)"
+  if [ "${n:-0}" -eq 0 ]; then
+    flock -u 200
+    tg_send "$CHAT" "🤷 Não achei mídia nesse chat."
+    echo "empty" >"$S/state"; return 1
+  fi
+  msgids_from_export "$EF" >"$S/ids.lst"            # p/ o dedupe_rename validar o prefixo
+  echo "run" >"$S/state"
+  "$TDL_BIN" dl -f "$EF" -d "$DDIR" --template "$BATCH_TMPL" >"$S/tdl.log" 2>&1 &
+  local DPID=$!
+  batch_progress "$CHAT" "$S" "$n" "$DPID" "$DDIR"  # 📥 0/n → k/n (edita a mesma msg)
+  wait "$DPID"; flock -u 200
+  dedupe_rename "$DDIR" "$S/ids.lst"                # tira o prefixo <id>_ quando o nome está livre
+  finish_batch "$CHAT" "$JOB" "chat inteiro${SUBDIR:+ → $SUBDIR}" "$DDIR"
+}
+
+# preview do chat inteiro (rodado INLINE pelo n8n via SSH): exporta os metadados, conta e
+# devolve a MENSAGEM pronta pro Telegram (pede o nome da pasta). O export vira cache p/ o download.
+preview_chat() {  # preview_chat <tg> [topic]  -> imprime o texto da resposta
+  local TG="$1" TOPIC="${2:-}"
+  [ -z "$TG" ] && { echo "⚠️ Link do chat inválido."; return 0; }
+  local key PDIR PF rc n SUG texp
+  key="$(preview_key "$TG" "$TOPIC")"
+  PDIR="$STATE_ROOT/.preview"; mkdir -p "$PDIR"
+  PF="$PDIR/$key.json"
+  exec 200>"$STATE_ROOT/.tdl.lock"
+  if ! flock -w 5 200; then                          # tem download rolando → não bloqueia o n8n
+    echo "⏳ Tem um download rolando agora. Me diga o nome da pasta que eu começo assim que liberar (ou \"cancelar\")."
+    return 0
+  fi
+  texp=(); [ -n "$TOPIC" ] && texp=(--topic "$TOPIC")
+  timeout 100 "$TDL_BIN" chat export -c "$TG" "${texp[@]}" -o "$PF" >"$PDIR/$key.log" 2>&1
+  rc=$?; flock -u 200
+  if [ "$rc" -eq 124 ]; then
+    echo "🐘 Esse chat é grande demais pra baixar de uma vez. Use /download_range <início> <fim> ou um link de tópico. (mande \"cancelar\" pra encerrar)"
+    return 0
+  fi
+  if [ "$rc" -ne 0 ]; then
+    echo "⚠️ Não consegui ler esse chat (link errado ou sem acesso). Confira o link. (mande \"cancelar\" pra encerrar)"
+    return 0
+  fi
+  n="$(python3 -c "import json,sys;print(len(json.load(open('$PF')).get('messages',[])))" 2>/dev/null || echo 0)"
+  if [ "${n:-0}" -eq 0 ]; then
+    echo "🤷 Não achei mídia nesse chat. (mande \"cancelar\" pra encerrar)"
+    return 0
+  fi
+  SUG=""; case "$TG" in *[!0-9]*) SUG="
+💡 Sugestão de pasta: $TG";; esac
+  printf '🔎 Achei %s arquivo(s) no chat.\n📁 Nome da pasta pra baixar tudo? (responda o nome, ou "sem" pra raiz, ou "cancelar")%s' "$n" "$SUG"
+}
+
 # ================================================================ dispatch
+# preview do chat inteiro (chamado inline pelo n8n; imprime a resposta pro Telegram)
+if [ "${1:-}" = "--preview" ]; then
+  preview_chat "${2:-}" "${3:-}"
+  exit 0
+fi
+
 if [ "${1:-}" = "__worker" ]; then
   JOB="${2:-}"; S="$STATE_ROOT/$JOB"; mkdir -p "$S"
   JSON="$(cat "$S/job.json" 2>/dev/null)"
@@ -274,6 +402,7 @@ PY
   case "$MODE" in
     multi) worker_multi "$CHAT" "$JOB" "$RSUBDIR" "${LINKS[@]}" ;;
     range) worker_range "$CHAT" "$JOB" "$RCHAT" "$RMIN" "$RMAX" "$RTOPIC" "$RSUBDIR" ;;
+    chat)  worker_chat  "$CHAT" "$JOB" "$RCHAT" "$RTOPIC" "$RSUBDIR" ;;
     *)     worker_single "${LINKS[0]:-}" "$CHAT" "$JOB" ;;
   esac
   exit $?
