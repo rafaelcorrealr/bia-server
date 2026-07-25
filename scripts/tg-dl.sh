@@ -62,26 +62,36 @@ tg_edit() {  # tg_edit <chat> <msg_id> <text>
     --data-urlencode "text=${text}" >/dev/null 2>&1
 }
 
-# conta arquivos novos (fora .tmp) surgidos em $DL_DIR desde $S/before.lst
-count_new() {  # count_new <S>  -> echo <n>
-  local S="$1" c=0 f
+# nome de pasta seguro: sem barras, sem ../, sem control chars; trim; cap 80
+sanitize_dir() {  # sanitize_dir <name> -> echo <safe>
+  local s="$1"
+  s="${s//\//}"                                                 # remove barras
+  s="$(printf '%s' "$s" | tr -d '\000-\037')"                   # remove control chars
+  s="$(sed -E 's/^[[:space:].]+//; s/[[:space:]]+$//' <<<"$s")"  # trim espaços/pontos do início
+  case "$s" in .|..) s="";; esac
+  printf '%s' "${s:0:80}"
+}
+
+# conta arquivos novos (fora .tmp) surgidos em <dir> desde $S/before.lst
+count_new() {  # count_new <S> [dir]  -> echo <n>
+  local S="$1" dir="${2:-$DL_DIR}" c=0 f
   while IFS= read -r f; do
     [ -n "$f" ] && case "$f" in *.tmp) ;; *) c=$((c+1));; esac
-  done < <(comm -13 "$S/before.lst" <(ls -1 "$DL_DIR" 2>/dev/null | sort))
+  done < <(comm -13 "$S/before.lst" <(ls -1 "$dir" 2>/dev/null | sort))
   printf '%s' "$c"
 }
 
 # loop de progresso de lote: manda "📥 0/N…" e edita "k/N" enquanto o tdl (DPID) roda.
 # tdl não expõe % legível -> progresso por CONTAGEM de arquivos. Grava o msg_id em $S/pmsg.
-batch_progress() {  # batch_progress <chat> <S> <N> <dpid>
-  local CHAT="$1" S="$2" N="$3" DPID="$4"
+batch_progress() {  # batch_progress <chat> <S> <N> <dpid> [dir]
+  local CHAT="$1" S="$2" N="$3" DPID="$4" DIR="${5:-$DL_DIR}"
   local INTERVAL="${TG_DL_PROGRESS_INTERVAL:-60}" mid k last=-1
   mid="$(tg_send_id "$CHAT" "📥 Baixando 0/${N}…")"
   printf '%s' "$mid" >"$S/pmsg"
   while kill -0 "$DPID" 2>/dev/null; do
     sleep "$INTERVAL"
     kill -0 "$DPID" 2>/dev/null || break
-    k="$(count_new "$S")"
+    k="$(count_new "$S" "$DIR")"
     if [ "$k" != "$last" ]; then
       tg_edit "$CHAT" "$mid" "📥 Baixando ${k}/${N}…"
       last="$k"
@@ -163,13 +173,14 @@ Nome final? Responda OK pra manter, ou mande o novo nome (com extensão)."
 }
 
 # ---------------------------------------------------------------- batch: comum (multi/range)
-finish_batch() {  # finish_batch <chat> <job> [descricao]   (usa $S/before.lst)
-  local CHAT="$1" JOB="$2" DESC="${3:-download}" S="$STATE_ROOT/$JOB"
+finish_batch() {  # finish_batch <chat> <job> [descricao] [dir]   (usa $S/before.lst)
+  local CHAT="$1" JOB="$2" DESC="${3:-download}" DIR="${4:-$DL_DIR}" S="$STATE_ROOT/$JOB"
   local PMSG=""; [ -f "$S/pmsg" ] && PMSG="$(cat "$S/pmsg")"   # msg de progresso p/ editar no fim
+  local FOLDER=""; [ "$DIR" != "$DL_DIR" ] && FOLDER=" 📁 $(basename "$DIR")"
   local newf=() f
   while IFS= read -r f; do
     [ -n "$f" ] && case "$f" in *.tmp) ;; *) newf+=("$f");; esac
-  done < <(comm -13 "$S/before.lst" <(ls -1 "$DL_DIR" 2>/dev/null | sort))
+  done < <(comm -13 "$S/before.lst" <(ls -1 "$DIR" 2>/dev/null | sort))
   local n="${#newf[@]}"
   if [ "$n" -eq 0 ]; then
     tg_edit "$CHAT" "$PMSG" "⚠️ Terminei mas não vi arquivos novos. Veja o log do job ($JOB)."
@@ -183,33 +194,43 @@ finish_batch() {  # finish_batch <chat> <job> [descricao]   (usa $S/before.lst)
   [ "$n" -gt 12 ] && list+="… e mais $((n-12)) arquivo(s)"$'\n'
   # UMA tarefa no Todoist p/ o lote inteiro (não uma por arquivo)
   "$TODOIST_BIN" "📥 Organizar: $n arquivo(s) ($DESC)" "Origem: Telegram (tdl) — lote de $n arquivo(s)
-Pasta: $DL_DIR
+Pasta: $DIR
 Ex.: $(clean_name "${newf[0]}")" >/dev/null 2>&1 || true
-  tg_edit "$CHAT" "$PMSG" "✅ Baixei ${n} arquivo(s):
+  tg_edit "$CHAT" "$PMSG" "✅ Baixei ${n} arquivo(s)${FOLDER}:
 ${list}"
   echo "done" >"$S/state"; return 0
 }
 
 # ---------------------------------------------------------------- worker: multi (vários links)
-worker_multi() {  # <chat> <job> <link...>
-  local CHAT="$1" JOB="$2"; shift 2
+worker_multi() {  # <chat> <job> <subdir> <link...>
+  local CHAT="$1" JOB="$2" SUBDIR="$3"; shift 3
   local S="$STATE_ROOT/$JOB"; mkdir -p "$S"
-  ls -1 "$DL_DIR" 2>/dev/null | sort >"$S/before.lst"
+  local DDIR="$DL_DIR"                                    # pasta destino (subpasta se pedida)
+  if [ -n "$SUBDIR" ]; then
+    SUBDIR="$(sanitize_dir "$SUBDIR")"
+    [ -n "$SUBDIR" ] && { DDIR="$DL_DIR/$SUBDIR"; mkdir -p "$DDIR"; }
+  fi
+  ls -1 "$DDIR" 2>/dev/null | sort >"$S/before.lst"
   local N=$# args=() l; for l in "$@"; do args+=(-u "$l"); done
   echo "run" >"$S/state"
   exec 200>"$STATE_ROOT/.tdl.lock"; flock 200            # serializa o tdl (bolt = 1 processo por vez)
-  "$TDL_BIN" dl "${args[@]}" -d "$DL_DIR" --template "$CLEAN_TMPL" >"$S/tdl.log" 2>&1 &
+  "$TDL_BIN" dl "${args[@]}" -d "$DDIR" --template "$CLEAN_TMPL" >"$S/tdl.log" 2>&1 &
   local DPID=$!
-  batch_progress "$CHAT" "$S" "$N" "$DPID"               # 📥 0/N → k/N (edita a mesma msg)
+  batch_progress "$CHAT" "$S" "$N" "$DPID" "$DDIR"       # 📥 0/N → k/N (edita a mesma msg)
   wait "$DPID"; flock -u 200
-  finish_batch "$CHAT" "$JOB" "multi-link"               # edita p/ ✅ final
+  finish_batch "$CHAT" "$JOB" "multi-link${SUBDIR:+ → $SUBDIR}" "$DDIR"   # edita p/ ✅ final
 }
 
 # ---------------------------------------------------------------- worker: range (intervalo)
-worker_range() {  # <chat> <job> <tgchat> <min> <max> [topic]
-  local CHAT="$1" JOB="$2" TG="$3" MIN="$4" MAX="$5" TOPIC="${6:-}"
+worker_range() {  # <chat> <job> <tgchat> <min> <max> [topic] [subdir]
+  local CHAT="$1" JOB="$2" TG="$3" MIN="$4" MAX="$5" TOPIC="${6:-}" SUBDIR="${7:-}"
   local S="$STATE_ROOT/$JOB"; mkdir -p "$S"
-  ls -1 "$DL_DIR" 2>/dev/null | sort >"$S/before.lst"
+  local DDIR="$DL_DIR"                               # pasta destino (subpasta se pedida)
+  if [ -n "$SUBDIR" ]; then
+    SUBDIR="$(sanitize_dir "$SUBDIR")"
+    [ -n "$SUBDIR" ] && { DDIR="$DL_DIR/$SUBDIR"; mkdir -p "$DDIR"; }
+  fi
+  ls -1 "$DDIR" 2>/dev/null | sort >"$S/before.lst"
   echo "export" >"$S/state"
   exec 200>"$STATE_ROOT/.tdl.lock"; flock 200        # serializa o tdl (segura export + dl)
   local texp=(); [ -n "$TOPIC" ] && texp=(--topic "$TOPIC")   # grupo com tópicos (fórum)
@@ -222,11 +243,11 @@ worker_range() {  # <chat> <job> <tgchat> <min> <max> [topic]
     echo "empty" >"$S/state"; return 1
   fi
   echo "run" >"$S/state"
-  "$TDL_BIN" dl -f "$S/export.json" -d "$DL_DIR" --template "$CLEAN_TMPL" >"$S/tdl.log" 2>&1 &
+  "$TDL_BIN" dl -f "$S/export.json" -d "$DDIR" --template "$CLEAN_TMPL" >"$S/tdl.log" 2>&1 &
   local DPID=$!
-  batch_progress "$CHAT" "$S" "$n" "$DPID"           # 📥 0/n → k/n (edita a mesma msg)
+  batch_progress "$CHAT" "$S" "$n" "$DPID" "$DDIR"   # 📥 0/n → k/n (edita a mesma msg)
   wait "$DPID"; flock -u 200
-  finish_batch "$CHAT" "$JOB" "intervalo msg $MIN-$MAX"
+  finish_batch "$CHAT" "$JOB" "intervalo msg $MIN-$MAX${SUBDIR:+ → $SUBDIR}" "$DDIR"
 }
 
 # ================================================================ dispatch
@@ -245,13 +266,14 @@ print("RMIN="  + q(j.get("rmin", "")))
 print("RMAX="  + q(j.get("rmax", "")))
 _rt = j.get("rtopic")
 print("RTOPIC=" + q("" if _rt is None else _rt))
+print("RSUBDIR=" + q(j.get("rsubdir", "")))
 links = j.get("links", []) or []
 print("LINKS=(" + " ".join(q(x) for x in links) + ")")
 PY
 )"
   case "$MODE" in
-    multi) worker_multi "$CHAT" "$JOB" "${LINKS[@]}" ;;
-    range) worker_range "$CHAT" "$JOB" "$RCHAT" "$RMIN" "$RMAX" "$RTOPIC" ;;
+    multi) worker_multi "$CHAT" "$JOB" "$RSUBDIR" "${LINKS[@]}" ;;
+    range) worker_range "$CHAT" "$JOB" "$RCHAT" "$RMIN" "$RMAX" "$RTOPIC" "$RSUBDIR" ;;
     *)     worker_single "${LINKS[0]:-}" "$CHAT" "$JOB" ;;
   esac
   exit $?

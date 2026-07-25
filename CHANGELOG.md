@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.16.0] — 2026-07-25
+
+### Organização por pasta nos lotes + comandos do bot + comandos de download explícitos
+
+- **Pasta nos lotes**: `scripts/tg-dl.sh` — `worker_range` **e** `worker_multi` baixam numa subpasta; `sanitize_dir` bloqueia path-traversal (`../` não escapa); helpers `count_new`/`batch_progress`/`finish_batch` recebem o dir. O classificador n8n pergunta o nome da pasta.
+- **Comandos do bot** (novo `scripts/bot-cmd.sh` + nós n8n `SSH cmd`/`Reply cmd ok/erro`): `/ajuda`, `/quero <título>` (add no AniList via `anilist-add.sh`), `/fila`, `/pastas`, `/espaco`. `/start` consertado (era "retomar" → agora ajuda). Menu registrado via `setMyCommands` (12 comandos).
+- **Fix `/lista`**: estourava o limite de 4096 chars do Telegram (caminhos longos pós-pastas) → `sendMessage` falhava calado; agora com cap de ~3600 chars + "… use /pastas".
+- **Fase 1 — comandos de download explícitos**: `/download_link`, `/download_list`, `/download_range` (+ `/download_chat` stub p/ Fase 2); **link solto sem comando → rejeitado** com orientação (+ o `/download_link` pronto). Novo pending `await_folder`. Classificador reescrito (14/14 testes via `docker exec n8n node`).
+- Organizados em pastas: `Jackie Chan Adventures/` (95 `.avi`) e `Bluey/` (152 eps). Deploys n8n com offset preservado. Diagnóstico: colisão de nomes no Job B (`@AniCatBot.mp4` ×64 → 1 arquivo).
+
 ## [2.15.0] — 2026-07-24
 
 ### Sistema de progresso de download (Trilhas A + B)
