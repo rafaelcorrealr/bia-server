@@ -9,6 +9,7 @@
 #   --status <s>       quero|planning · assistindo|watching · completo|completed
 #                      · pausado|paused · desisti|dropped · revendo|repeating   (default: quero)
 #   --progress <n>     episódios (anime) ou capítulos (mangá) já vistos
+#   --list <nome>      adiciona a uma lista custom sua (ex.: "Baixado"); vírgula p/ várias
 #   --score <f>        nota (na escala da sua conta)
 #   --type ANIME|MANGA (default ANIME)
 #   --dry              só RESOLVE e mostra, NÃO grava (não precisa de token)
@@ -23,12 +24,13 @@ API="${ANILIST_API:-https://graphql.anilist.co}"
 LOG="${ANILIST_LOG:-/home/bia/.local/state/tg-dl/anilist.log}"
 UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36"
 
-MID=""; STATUS="quero"; PROGRESS=""; SCORE=""; MTYPE="ANIME"; DRY=""; SEARCH=""
+MID=""; STATUS="quero"; PROGRESS=""; SCORE=""; MTYPE="ANIME"; DRY=""; SEARCH=""; LISTS=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --id)       MID="${2:-}"; shift 2;;
     --status)   STATUS="${2:-}"; shift 2;;
     --progress) PROGRESS="${2:-}"; shift 2;;
+    --list)     LISTS="${2:-}"; shift 2;;
     --score)    SCORE="${2:-}"; shift 2;;
     --type)     MTYPE="${2:-}"; shift 2;;
     --dry)      DRY=1; shift;;
@@ -58,10 +60,11 @@ if [ -z "$DRY" ]; then
   [ -z "$tok" ] && { echo "ERR sem token do AniList ($TOKEN_FILE) — gere e salve lá (600)" >&2; exit 3; }
 fi
 
-out="$(ANILIST_UA="$UA" python3 - "$API" "$tok" "$MTYPE" "$STATUS" "$MID" "$PROGRESS" "$SCORE" "${DRY:-}" "$SEARCH" <<'PY'
+out="$(ANILIST_UA="$UA" ANILIST_LISTS="$LISTS" python3 - "$API" "$tok" "$MTYPE" "$STATUS" "$MID" "$PROGRESS" "$SCORE" "${DRY:-}" "$SEARCH" <<'PY'
 import json, sys, os, urllib.request, urllib.error
 api, tok, mtype, status, mid, progress, score, dry, search = sys.argv[1:10]
 ua = os.environ.get("ANILIST_UA", "Mozilla/5.0")
+lists = os.environ.get("ANILIST_LISTS", "").strip()
 
 def gql(query, variables, auth=False):
     body = json.dumps({"query": query, "variables": variables}).encode()
@@ -95,8 +98,9 @@ elif dry:
 
 mid = int(mid)
 if dry:
-    print("DRY: %s (id=%d) → status=%s%s" % (title or "?", mid, status,
-          (" progress=%s" % progress) if progress else ""))
+    print("DRY: %s (id=%d) → status=%s%s%s" % (title or "?", mid, status,
+          (" progress=%s" % progress) if progress else "",
+          (" lists=[%s]" % lists) if lists else ""))
     sys.exit(0)
 
 # mutation SaveMediaListEntry — só inclui os campos que vieram
@@ -107,13 +111,19 @@ if progress:
     vardef.append("$progress:Int"); args.append("progress:$progress"); variables["progress"] = int(progress)
 if score:
     vardef.append("$score:Float"); args.append("score:$score"); variables["score"] = float(score)
-MU = "mutation(%s){SaveMediaListEntry(%s){status progress media{title{romaji english}}}}" % (",".join(vardef), ",".join(args))
+if lists:
+    names = [x.strip() for x in lists.split(",") if x.strip()]
+    vardef.append("$lists:[String]"); args.append("customLists:$lists"); variables["lists"] = names
+MU = "mutation(%s){SaveMediaListEntry(%s){status progress customLists media{title{romaji english}}}}" % (",".join(vardef), ",".join(args))
 d = gql(MU, variables, auth=True)
 if d.get("errors"):
     print("ERRO AniList: %s" % d["errors"][0].get("message", "?")); sys.exit(1)
 e = d["data"]["SaveMediaListEntry"]
 t = e["media"]["title"]["english"] or e["media"]["title"]["romaji"]
-print("OK: %s → %s (progress %s)" % (t, e["status"], e["progress"]))
+cl = e.get("customLists") or {}
+inlists = [k for k, v in cl.items() if v]
+print("OK: %s → %s (progress %s)%s" % (t, e["status"], e["progress"],
+      (" | listas: " + ", ".join(inlists)) if inlists else ""))
 PY
 )"
 rc=$?

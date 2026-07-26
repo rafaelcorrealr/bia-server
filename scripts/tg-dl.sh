@@ -220,7 +220,7 @@ Nome final? Responda OK pra manter, ou mande o novo nome (com extensão)."
 
 # ---------------------------------------------------------------- batch: comum (multi/range)
 finish_batch() {  # finish_batch <chat> <job> [descricao] [dir]   (usa $S/before.lst)
-  local CHAT="$1" JOB="$2" DESC="${3:-download}" DIR="${4:-$DL_DIR}" S="$STATE_ROOT/$JOB"
+  local CHAT="$1" JOB="$2" DESC="${3:-download}" DIR="${4:-$DL_DIR}" MT="${5:-}" S="$STATE_ROOT/$JOB"
   local PMSG=""; [ -f "$S/pmsg" ] && PMSG="$(cat "$S/pmsg")"   # msg de progresso p/ editar no fim
   local FOLDER=""; [ "$DIR" != "$DL_DIR" ] && FOLDER=" 📁 $(basename "$DIR")"
   local newf=() f
@@ -238,13 +238,38 @@ finish_batch() {  # finish_batch <chat> <job> [descricao] [dir]   (usa $S/before
     i=$((i+1)); [ "$i" -le 12 ] && list+="• $(clean_name "$f")"$'\n'
   done
   [ "$n" -gt 12 ] && list+="… e mais $((n-12)) arquivo(s)"$'\n'
-  # UMA tarefa no Todoist p/ o lote inteiro (não uma por arquivo)
+  # UMA tarefa no Todoist p/ o lote inteiro (não uma por arquivo) — pula se vai auto-organizar (anime/mangá)
+  case "$MT" in anime|manga) : ;; *)
   "$TODOIST_BIN" "📥 Organizar: $n arquivo(s) ($DESC)" "Origem: Telegram (tdl) — lote de $n arquivo(s)
 Pasta: $DIR
 Ex.: $(clean_name "${newf[0]}")" >/dev/null 2>&1 || true
+  ;; esac
   tg_edit "$CHAT" "$PMSG" "✅ Baixei ${n} arquivo(s)${FOLDER}:
 ${list}"
   echo "done" >"$S/state"; return 0
+}
+
+# ---------------------------------------------------------------- organiza (anime/mangá) no fim do batch
+organize_batch() {  # <chat> <job> <type> <name> <dir>
+  local CHAT="$1" JOB="$2" MT="$3" NAME="$4" DIR="$5" S="$STATE_ROOT/$JOB"
+  case "$MT" in anime|manga) ;; *) return 0;; esac              # só anime/mangá organizam
+  [ -n "$NAME" ] && [ "$DIR" != "$DL_DIR" ] || return 0         # precisa de pasta própria
+  "$HOME/.local/bin/rename-media.sh" --type "$MT" --name "$NAME" --dir "$DIR" --apply >"$S/organize.log" 2>&1 || true
+  if [ "$MT" = anime ]; then
+    local JK JU NEPS
+    JK="$(cat "$HOME/.config/tg-dl/jellyfin-key" 2>/dev/null)"
+    JU="$(cat "$HOME/.config/tg-dl/jellyfin-url" 2>/dev/null)"; JU="${JU:-http://localhost:8097}"
+    [ -n "$JK" ] && curl -s -o /dev/null --max-time 15 -X POST -H "X-Emby-Token: $JK" "$JU/Library/Refresh" 2>/dev/null || true
+    NEPS="$(find "/mnt/Hi0/Media/Animes/$NAME" -maxdepth 1 -type f \( -iname '*.mkv' -o -iname '*.mp4' -o -iname '*.avi' -o -iname '*.m4v' \) 2>/dev/null | wc -l)"
+    "$HOME/.local/bin/anilist-add.sh" --status quero --list "Baixado" --type ANIME ${NEPS:+--progress "$NEPS"} "$NAME" >>"$S/organize.log" 2>&1 || true
+    # Fase B atrasada: o título só fica pronto ~1-3min após o scan → processo destacado retitula a lib e reescaneia
+    setsid bash -c 'sleep 200; "$HOME/.local/bin/jellyfin-retitle.sh" --apply >/dev/null 2>&1; k="$(cat "$HOME/.config/tg-dl/jellyfin-key" 2>/dev/null)"; u="$(cat "$HOME/.config/tg-dl/jellyfin-url" 2>/dev/null)"; curl -s -o /dev/null --max-time 15 -X POST -H "X-Emby-Token: $k" "${u:-http://localhost:8097}/Library/Refresh" 2>/dev/null' </dev/null >/dev/null 2>&1 &
+    disown 2>/dev/null || true
+    tg_send "$CHAT" "🎬 Organizado no Jellyfin: $NAME ($NEPS ep). Os títulos dos episódios entram em alguns minutos. Marcado no AniList → Baixado."
+  else
+    "$HOME/.local/bin/anilist-add.sh" --status quero --list "Baixado" --type MANGA "$NAME" >>"$S/organize.log" 2>&1 || true
+    tg_send "$CHAT" "📚 Mangá organizado: $NAME. Marcado no AniList → Baixado."
+  fi
 }
 
 # ---------------------------------------------------------------- worker: multi (vários links)
@@ -266,7 +291,8 @@ worker_multi() {  # <chat> <job> <subdir> <link...>
   batch_progress "$CHAT" "$S" "$N" "$DPID" "$DDIR"       # 📥 0/N → k/N (edita a mesma msg)
   wait "$DPID"; flock -u 200
   dedupe_rename "$DDIR" "$S/ids.lst"                      # tira o prefixo <id>_ quando o nome está livre
-  finish_batch "$CHAT" "$JOB" "multi-link${SUBDIR:+ → $SUBDIR}" "$DDIR"   # edita p/ ✅ final
+  finish_batch "$CHAT" "$JOB" "multi-link${SUBDIR:+ → $SUBDIR}" "$DDIR" "${RTYPE:-}"   # edita p/ ✅ final
+  organize_batch "$CHAT" "$JOB" "${RTYPE:-}" "$(basename "$DDIR")" "$DDIR"
 }
 
 # ---------------------------------------------------------------- worker: range (intervalo)
@@ -297,7 +323,8 @@ worker_range() {  # <chat> <job> <tgchat> <min> <max> [topic] [subdir]
   batch_progress "$CHAT" "$S" "$n" "$DPID" "$DDIR"   # 📥 0/n → k/n (edita a mesma msg)
   wait "$DPID"; flock -u 200
   dedupe_rename "$DDIR" "$S/ids.lst"                 # tira o prefixo <id>_ quando o nome está livre
-  finish_batch "$CHAT" "$JOB" "intervalo msg $MIN-$MAX${SUBDIR:+ → $SUBDIR}" "$DDIR"
+  finish_batch "$CHAT" "$JOB" "intervalo msg $MIN-$MAX${SUBDIR:+ → $SUBDIR}" "$DDIR" "${RTYPE:-}"
+  organize_batch "$CHAT" "$JOB" "${RTYPE:-}" "$(basename "$DDIR")" "$DDIR"
 }
 
 # ---------------------------------------------------------------- worker: chat (chat inteiro)
@@ -334,7 +361,8 @@ worker_chat() {  # <chat> <job> <tgchat> [topic] [subdir]
   batch_progress "$CHAT" "$S" "$n" "$DPID" "$DDIR"  # 📥 0/n → k/n (edita a mesma msg)
   wait "$DPID"; flock -u 200
   dedupe_rename "$DDIR" "$S/ids.lst"                # tira o prefixo <id>_ quando o nome está livre
-  finish_batch "$CHAT" "$JOB" "chat inteiro${SUBDIR:+ → $SUBDIR}" "$DDIR"
+  finish_batch "$CHAT" "$JOB" "chat inteiro${SUBDIR:+ → $SUBDIR}" "$DDIR" "${RTYPE:-}"
+  organize_batch "$CHAT" "$JOB" "${RTYPE:-}" "$(basename "$DDIR")" "$DDIR"
 }
 
 # preview do chat inteiro (rodado INLINE pelo n8n via SSH): exporta os metadados, conta e
@@ -395,6 +423,7 @@ print("RMAX="  + q(j.get("rmax", "")))
 _rt = j.get("rtopic")
 print("RTOPIC=" + q("" if _rt is None else _rt))
 print("RSUBDIR=" + q(j.get("rsubdir", "")))
+print("RTYPE=" + q(j.get("mtype", "")))
 links = j.get("links", []) or []
 print("LINKS=(" + " ".join(q(x) for x in links) + ")")
 PY

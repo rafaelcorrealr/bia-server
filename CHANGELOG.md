@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.18.0] — 2026-07-25
+
+### Pipeline de organização de animes — manter no Hi0 + renomear + título real + AniList "Baixado"
+
+Organiza os animes/mangás baixados **sem tirar do HD de download** (Hi0): integra ao Jellyfin, renomeia pro padrão de episódio e marca no AniList. Motor = script leve no `tg-dl` (Sonarr descartado — a ideia é manter no Hi0, que tem 1,7T livre, e não lotar o Se0 a 88%).
+
+- **Jellyfin lê o Hi0 (read-only)**: `/mnt/Hi0/Media → /MediaHi0:ro` no compose do Jellyfin (`services.volumes` **e** `x-casaos.volumes`, editado com `sudo python3`, backup `.bak-20260725`) + library **"Animes (Hi0)"** → `/MediaHi0/Animes` (criada via API, HTTP 204). Disco "em risco" protegido pelo mount read-only.
+- **`scripts/rename-media.sh` (novo)**: renomeia pro padrão parseável — anime `<Nome> SxxEyy.ext` em `Media/Animes/<Nome>/`; mangá `capitulo/volume N - <Nome>.ext` em `Media/Mangas/`. Preserva `SxxEyy` explícito (multi-temporada tipo Bluey), fallback pra ordem quando não há número (flag `(?)`), idempotente, grava `.rename-log`. Dry-run por padrão (`--apply`). Fix: `re.match` (âncora) pra não casar dígitos finais de IDs longos do Telegram como nº de episódio.
+- **`scripts/jellyfin-retitle.sh` (novo, Fase B)**: puxa o **título real do episódio** (em PT) da API do Jellyfin (`/Items?...IncludeItemTypes=Episode&Fields=Path`) e regrava no arquivo (`<Nome> SxxEyy - <Título>.ext`). Fallback = nome limpo; pula título genérico ("Episódio N"); idempotente; mapeia container→host (`/MediaHi0`→`/mnt/Hi0/Media`). Gotcha: `echo|python3 <<'PY'` não funciona (heredoc rouba o stdin) → dados por arquivo temp.
+- **`scripts/anilist-add.sh`**: novo `--list <nome>` → `customLists` no `SaveMediaListEntry`, marca na lista custom **"Baixado"** (mantendo o status obrigatório do AniList).
+- **`scripts/tg-dl.sh`**: novo `organize_batch` (fim dos lotes multi/range/chat) — se anime/mangá: `rename-media.sh --apply` → scan Jellyfin → `anilist-add.sh --list Baixado` → **retitle atrasado destacado** (`setsid bash -c 'sleep 200; jellyfin-retitle --apply; rescan'`, sem depender de timer systemd por causa do `Linger=no`). `finish_batch` (5º arg `MT`) não cria mais a task "organizar manual" no Todoist p/ anime/mangá.
+- **Bot pergunta o tipo** (classificador n8n): novo estágio `await_type` — depois da pasta, "🎬 anime/manga/outro?" (`cancelar` aborta); `mtype` viaja no job → `RTYPE` no tg-dl. Deploy com offset (`978296117`) e Schedule Trigger preservados; 31 nós, ativo. Harness (chat/range/multi/cancelar) ok.
+- **Legado organizado**: 6 séries movidas pro Hi0 e identificadas pelo Jellyfin (FMA Brotherhood, Monogatari Off&Monster, Oshi no Ko, Sentenced to Be a Hero, Frieren 2nd Season, Umamusume S3); 99/112 eps com título real (13 do Uma S3 no fallback).
+
 ## [2.17.0] — 2026-07-25
 
 ### Comandos de download — Fases 2 e 3 + UX "toca→cola" (3 fases completas)

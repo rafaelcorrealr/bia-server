@@ -18,3 +18,4 @@ services:
     volumes:
       - /DATA/AppData/jellyfin/config:/config
       - /mnt/Se0/10-Mídias(Jellyfin):/Media
+      - /mnt/Hi0/Media:/MediaHi0:ro   # animes no Hi0 (read-only) — library "Animes (Hi0)"
