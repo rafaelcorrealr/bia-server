@@ -272,6 +272,118 @@ organize_batch() {  # <chat> <job> <type> <name> <dir>
   fi
 }
 
+# ================================================================ download web (MEGA/aria2/yt-dlp)
+# se o download criou UMA subpasta só (ex.: pasta do MEGA) e nenhum arquivo solto, sobe o conteúdo p/ <ddir>
+flatten_single() {  # flatten_single <ddir>
+  python3 - "$1" <<'PY'
+import sys, os, shutil
+d = sys.argv[1]
+if not os.path.isdir(d): sys.exit(0)
+ent   = [e for e in os.listdir(d) if not e.startswith('.')]
+subs  = [e for e in ent if os.path.isdir(os.path.join(d, e))]
+files = [e for e in ent if os.path.isfile(os.path.join(d, e))]
+if len(subs) == 1 and not files:                       # só achata o caso simples (1 subpasta, 0 arquivos)
+    src = os.path.join(d, subs[0])
+    for name in os.listdir(src):
+        try: shutil.move(os.path.join(src, name), os.path.join(d, name))
+        except Exception: pass
+    try: os.rmdir(src)
+    except OSError: pass
+PY
+}
+
+# MEGA (link público de arquivo ou pasta) — megatools, síncrono. Pasta do MEGA vira subpasta → achata.
+web_mega() {  # web_mega <url> <ddir> <S>
+  local URL="$1" DDIR="$2" S="$3"
+  megadl --no-progress --path "$DDIR" "$URL" >"$S/web.log" 2>&1 || return 1
+  flatten_single "$DDIR"
+}
+
+# link direto de arquivo — via aria2 (container já rodando). dir do RPC = path DENTRO do container.
+web_aria2() {  # web_aria2 <url> <ddir> <S> <chat> <mid>
+  local URL="$1" DDIR="$2" S="$3" CHAT="$4" MID="$5"
+  local SEC RPC CDIR addp gid st comp total spd pct last=-1
+  SEC="$(cat "$HOME/.config/tg-dl/aria2-secret" 2>/dev/null)"
+  RPC="$(cat "$HOME/.config/tg-dl/aria2-rpc" 2>/dev/null)"; RPC="${RPC:-http://localhost:6800/jsonrpc}"
+  CDIR="/downloads${DDIR#"$DL_DIR"}"                    # host /mnt/Hi0/Downloads/X → container /downloads/X
+  addp="$(python3 -c 'import sys,json;print(json.dumps({"jsonrpc":"2.0","id":"a","method":"aria2.addUri","params":["token:"+sys.argv[1],[sys.argv[2]],{"dir":sys.argv[3]}]}))' "$SEC" "$URL" "$CDIR")"
+  gid="$(curl -s --max-time 15 "$RPC" -d "$addp" | python3 -c 'import sys,json
+try: print(json.load(sys.stdin).get("result","") or "")
+except Exception: pass' 2>/dev/null)"
+  [ -z "$gid" ] && { echo "aria2 addUri falhou" >"$S/web.log"; return 1; }
+  printf '%s' "$gid" >"$S/aria2.gid"
+  local INTERVAL="${TG_DL_PROGRESS_INTERVAL:-10}" statp
+  statp="$(python3 -c 'import sys,json;print(json.dumps({"jsonrpc":"2.0","id":"s","method":"aria2.tellStatus","params":["token:"+sys.argv[1],sys.argv[2],["status","completedLength","totalLength","downloadSpeed","errorMessage"]]}))' "$SEC" "$gid")"
+  while :; do
+    sleep "$INTERVAL"
+    read -r st comp total spd < <(curl -s --max-time 15 "$RPC" -d "$statp" | python3 -c 'import sys,json
+try:
+ r=json.load(sys.stdin)["result"]; print(r.get("status",""), r.get("completedLength","0"), r.get("totalLength","0"), r.get("downloadSpeed","0"))
+except Exception: print("gone 0 0 0")')
+    case "$st" in
+      complete) return 0 ;;
+      error|removed|gone) echo "aria2 status=$st" >>"$S/web.log"; return 1 ;;
+    esac
+    if [ "${total:-0}" -gt 0 ] 2>/dev/null; then
+      pct=$(( comp * 100 / total ))
+      if [ "$pct" != "$last" ]; then
+        tg_edit "$CHAT" "$MID" "⬇️ ${pct}% · $(awk -v b="${spd:-0}" 'BEGIN{if(b>=1048576)printf "%.1f MB/s",b/1048576; else printf "%.0f KB/s",b/1024}')"
+        last="$pct"
+      fi
+    fi
+  done
+}
+
+# páginas de vídeo/stream + GDrive + genérico — yt-dlp, síncrono.
+web_ytdlp() {  # web_ytdlp <url> <ddir> <S>
+  local URL="$1" DDIR="$2" S="$3"
+  yt-dlp --no-warnings --no-playlist -P "$DDIR" -o '%(title)s.%(ext)s' "$URL" >"$S/web.log" 2>&1 || return 1
+  flatten_single "$DDIR"
+}
+
+# ---------------------------------------------------------------- worker: web (MEGA / direto / vídeo)
+worker_web() {  # <chat> <job> <url> <subdir>
+  local CHAT="$1" JOB="$2" URL="$3" SUBDIR="$4"
+  local S="$STATE_ROOT/$JOB"; mkdir -p "$S"
+  local DDIR="$DL_DIR"                                  # pasta destino (subpasta se pedida)
+  if [ -n "$SUBDIR" ]; then
+    SUBDIR="$(sanitize_dir "$SUBDIR")"
+    [ -n "$SUBDIR" ] && { DDIR="$DL_DIR/$SUBDIR"; mkdir -p "$DDIR"; }
+  fi
+  ls -1 "$DDIR" 2>/dev/null | sort >"$S/before.lst"
+  echo "run" >"$S/state"
+
+  # despacho por tipo de URL
+  local backend low
+  low="$(printf '%s' "$URL" | tr 'A-Z' 'a-z')"
+  case "$low" in
+    *mega.nz/*|*mega.co.nz/*) backend=mega ;;
+    *)
+      case "${low%%[?#]*}" in                           # ignora query/fragmento pra achar a extensão
+        *.zip|*.rar|*.7z|*.tar|*.gz|*.tgz|*.xz|*.iso|*.bin|*.mkv|*.mp4|*.avi|*.m4v|*.mov|*.webm|*.ts|*.pdf|*.cbz|*.cbr|*.epub|*.mobi|*.mp3|*.flac|*.m4a|*.wav) backend=aria2 ;;
+        *) backend=ytdlp ;;
+      esac ;;
+  esac
+
+  local mid rc
+  mid="$(tg_send_id "$CHAT" "⬇️ Baixando ($backend)…")"
+  printf '%s' "$mid" >"$S/pmsg"
+
+  case "$backend" in
+    mega)  web_mega  "$URL" "$DDIR" "$S" ;;
+    aria2) web_aria2 "$URL" "$DDIR" "$S" "$CHAT" "$mid" ;;
+    ytdlp) web_ytdlp "$URL" "$DDIR" "$S" ;;
+  esac
+  rc=$?
+
+  if [ "$rc" -ne 0 ]; then
+    tg_edit "$CHAT" "$mid" "❌ Falhou o download ($backend). Confere o link (alguns hosts pedem captcha/login). Log: job $JOB."
+    echo "failed" >"$S/state"; return 1
+  fi
+  finish_batch "$CHAT" "$JOB" "web ($backend)${SUBDIR:+ → $SUBDIR}" "$DDIR" "${RTYPE:-}"
+  organize_batch "$CHAT" "$JOB" "${RTYPE:-}" "$(basename "$DDIR")" "$DDIR"
+}
+
 # ---------------------------------------------------------------- worker: multi (vários links)
 worker_multi() {  # <chat> <job> <subdir> <link...>
   local CHAT="$1" JOB="$2" SUBDIR="$3"; shift 3
@@ -424,6 +536,7 @@ _rt = j.get("rtopic")
 print("RTOPIC=" + q("" if _rt is None else _rt))
 print("RSUBDIR=" + q(j.get("rsubdir", "")))
 print("RTYPE=" + q(j.get("mtype", "")))
+print("URL=" + q(j.get("url", "")))
 links = j.get("links", []) or []
 print("LINKS=(" + " ".join(q(x) for x in links) + ")")
 PY
@@ -432,6 +545,7 @@ PY
     multi) worker_multi "$CHAT" "$JOB" "$RSUBDIR" "${LINKS[@]}" ;;
     range) worker_range "$CHAT" "$JOB" "$RCHAT" "$RMIN" "$RMAX" "$RTOPIC" "$RSUBDIR" ;;
     chat)  worker_chat  "$CHAT" "$JOB" "$RCHAT" "$RTOPIC" "$RSUBDIR" ;;
+    web)   worker_web   "$CHAT" "$JOB" "$URL" "$RSUBDIR" ;;
     *)     worker_single "${LINKS[0]:-}" "$CHAT" "$JOB" ;;
   esac
   exit $?

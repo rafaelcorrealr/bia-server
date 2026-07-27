@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.19.0] — 2026-07-27
+
+### Download web pelo bot (`/baixar`) — MEGA + link direto + vídeo, integrado ao organize
+
+Novo comando `/baixar <link>` no Download Bot: baixa da web e, se anime/mangá, organiza sozinho no Jellyfin/AniList reusando o fluxo pasta→tipo. Despacho automático por tipo de link. **Reusa o aria2 que já rodava** (container `aria2-pro`); no n8n **nenhum nó novo** (o job `mode:web` passa pelo mesmo SSH `tme`).
+
+- **3 motores** (`scripts/tg-dl.sh` → novo `worker_web` + `web_mega`/`web_aria2`/`web_ytdlp`/`flatten_single`):
+  - **MEGA** (`mega.nz`/`mega.co.nz`) → `megatools` (`megadl --path`), instalado nesta sessão.
+  - **link direto** (`.zip/.mkv/.pdf`…) → **aria2** via RPC `aria2.addUri` com `dir` no path **do container** (`/downloads/…`, não o host) + poll de `tellStatus` → % real editado no Telegram.
+  - **página de vídeo/stream, GDrive, genérico** → **yt-dlp**.
+- **Config**: `~/.config/tg-dl/aria2-secret` + `aria2-rpc` (600). `__worker` ganhou `url` + `mode:web`; dispatch `web) worker_web`. Pasta do MEGA (subpasta) é achatada 1 nível p/ o `organize_batch` enxergar os arquivos.
+- **Classificador n8n**: `/baixar` (+ aliases `/download_web`, `/web`), estágio `await_web_link` (comando sozinho → pede o link, preserva o `#fragmento`/chave do MEGA), ramo `web` em `await_folder`/`emitDownload`; link web solto vira dica do `/baixar`. Deploy com **offset preservado** (978296121), 31 nós. Menu: **14 comandos** (+`/baixar`).
+- **yt-dlp atualizado** 2024.04.09 → **2026.07.04** (binário em `/usr/local/bin`, à frente do apt no PATH do script) — o antigo estava **quebrado no YouTube** ("No video formats found").
+- **Testado e2e**: aria2 (baixou 5.7 MB do GitHub) + yt-dlp (baixou vídeo do YouTube) via `worker_web`; classificador (9 cenários no harness, sem regressão em t.me/magnet). **MEGA**: instalado, falta 1 link real ao vivo.
+
 ## [2.18.0] — 2026-07-25
 
 ### Pipeline de organização de animes — manter no Hi0 + renomear + título real + AniList "Baixado"
