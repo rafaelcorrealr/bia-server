@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.20.0] — 2026-08-13
+
+### Nextcloud decomissionado de vez — substituído por share Samba
+
+Nextcloud estava parado desde 20/07 (loop de preview consumindo ~20 núcleos, ver `project-nextcloud-preview-loop`). Werus confirmou que não usa nem sente falta — decisão: decomissionar de vez em vez de investigar o bug.
+
+- **Dados movidos**: os ~18GB reais do usuário (`10.Pessoal`, `20.Estudos`, `30.Mídias`, `40.Trabalho`) saíram da estrutura interna do Nextcloud e foram pra `/mnt/Se0/00-Arquivos/` (dono `bia:bia`, era `www-data`).
+- **Share Samba**: reaproveitado o `smbd`/`nmbd` que já rodava na Bia via CasaOS (portas 445/139 já ativas, shares antigos do CasaOS apontavam pra `/mnt/Storage1` que não existe mais). Novo share `[Arquivos]` em `/etc/samba/smb.werus.conf` (separado do `smb.casa.conf` gerenciado pelo CasaOS, incluído no `smb.conf` principal antes do include do CasaOS) — autenticado, `valid users = bia`, sem guest. Usuário Samba `bia` criado via `smbpasswd`.
+- **Containers removidos**: `nextcloud`, `big-bear-nextcloud-cron-1`, `redis-nextcloud`, `db-nextcloud` — todos eram bind mount (sem volume nomeado), então parar/remover não tocou dado nenhum antes da limpeza final. Libera ~2GB de RAM reservada (limits: nextcloud 1GB + db 512MB + redis 256MB + cron 256MB).
+- **Timer desativado**: `backup-nextcloud-db.timer` (`systemctl disable --now`) — não faz mais sentido sem o serviço.
+- **Limpeza final** (confirmada com o Werus antes de apagar): removidos `/mnt/Se0/00-Nextcloud/` (61M, restos internos: appdata/cache/.ncdata/log), `/DATA/AppData/big-bear-nextcloud/` (1.3G, html+pgdata+redis), `/var/lib/casaos/apps/big-bear-nextcloud/` e `compose/nextcloud/` do repo.
+- Task Todoist `6h73pm387rWRC5WX` fechada.
+
 ## [2.19.0] — 2026-07-27
 
 ### Download web pelo bot (`/baixar`) — MEGA + link direto + vídeo, integrado ao organize
