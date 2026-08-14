@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.20.1] — 2026-08-13
+
+### Tika removido (órfão do stack do Nextcloud, esquecido na decomissão)
+
+Ao priorizar os containers Docker, achado que `tika` (`com.docker.compose.project: big-bear-nextcloud`) era só o serviço de OCR/indexação de texto completo do Nextcloud — nenhum outro serviço (ConFin, n8n, scripts) referencia `:9998`. Passou batido na decomissão do Nextcloud (v2.20.0) porque não tinha "nextcloud" no nome. Container parado e removido — libera mais 1GB de RAM reservada.
+
 ## [2.20.0] — 2026-08-13
 
 ### Nextcloud decomissionado de vez — substituído por share Samba

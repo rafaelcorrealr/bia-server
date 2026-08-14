@@ -29,22 +29,10 @@
                     │                                          │
   Internet/LAN ───► │  CasaOS (painel de controle :80)        │
   Tailscale VPN      │                                          │
-                    │  ┌──────────┐  ┌──────────┐             │
-                    │  │Nextcloud │  │ Jellyfin │             │
-                    │  │  :7580   │  │  :8097   │             │
-                    │  └────┬─────┘  └──────────┘             │
-                    │       │                                  │
-                    │  ┌────▼──────────────────────────────┐  │
-                    │  │  nextcloud_network (bridge)        │  │
-                    │  │  ┌──────────┐  ┌───────────────┐  │  │
-                    │  │  │PostgreSQL│  │     Redis     │  │  │
-                    │  │  │  :5432   │  │    :6379      │  │  │
-                    │  │  └──────────┘  └───────────────┘  │  │
-                    │  │  ┌──────────────────────────────┐  │  │
-                    │  │  │  Apache Tika (OCR/indexing)  │  │  │
-                    │  │  │          :9998               │  │  │
-                    │  │  └──────────────────────────────┘  │  │
-                    │  └───────────────────────────────────┘  │
+                    │  ┌──────────┐                           │
+                    │  │ Jellyfin │                           │
+                    │  │  :8097   │                           │
+                    │  └──────────┘                           │
                     │                                          │
                     │  ┌──────────┐  ┌──────────┐             │
                     │  │    n8n   │  │Syncthing │             │
@@ -70,11 +58,8 @@
 
 ## Decisões técnicas relevantes
 
-### Nextcloud com Tika para busca em texto completo
-O Apache Tika é integrado ao Nextcloud para habilitar indexação e busca dentro de arquivos (PDFs, documentos Office). Os dois containers compartilham a mesma rede Docker interna, evitando exposição desnecessária de porta.
-
 ### Separação de dados por disco
-O disco `/mnt/Se0` (Seagate 2TB) concentra todos os dados de usuário (mídias, downloads, Nextcloud). O disco `/mnt/Hi0` (Hitachi 2TB) é usado para automação (n8n) e dados de arquivo. Isso facilita backups seletivos e evita que o OS disk fique cheio.
+O disco `/mnt/Se0` (Seagate 2TB) concentra os dados de usuário (mídias, downloads, arquivos pessoais via Samba). O disco `/mnt/Hi0` (Hitachi 2TB) é usado para automação (n8n) e dados de arquivo. Isso facilita backups seletivos e evita que o OS disk fique cheio.
 
 ### CasaOS como painel de controle
 Gerencia os containers Docker via interface web, facilitando monitoramento e atualizações sem necessidade de SSH para tarefas rotineiras.

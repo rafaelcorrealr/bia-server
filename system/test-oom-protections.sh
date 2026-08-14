@@ -107,15 +107,10 @@ check_mem() {
 
 check_mem "jellyfin"                  4294967296
 check_mem "n8n"                       1073741824
-check_mem "tika"                      1073741824
-check_mem "nextcloud"                 1073741824
 check_mem "big-bear-scrutiny"          536870912
 check_mem "big-bear-syncthing"         536870912
-check_mem "db-nextcloud"               536870912
 check_mem "qbittorrent"                536870912
 check_mem "myspeed"                    268435456
-check_mem "redis-nextcloud"            268435456
-check_mem "big-bear-nextcloud-cron-1"  268435456
 
 # ---------------------------------------------------------------------------
 header "SAÚDE DOS SERVIÇOS"
@@ -132,7 +127,6 @@ check_http() {
 }
 
 check_http "Jellyfin" "http://localhost:8097/health" "200"
-check_http "Nextcloud" "http://localhost:7580/" "302"
 
 WATCHING=$(docker logs jellyfin 2>&1 | grep "Watching directory" | grep "/Media/" | wc -l)
 if [ "$WATCHING" -ge 1 ]; then

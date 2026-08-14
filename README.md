@@ -15,7 +15,6 @@ Servidor doméstico rodando sobre Ubuntu Server 24.04, gerenciado com Docker Com
 | [qBittorrent](compose/qbittorrent/) | Cliente BitTorrent com WebUI | 8181 |
 | [Scrutiny](compose/scrutiny/) | Monitoramento S.M.A.R.T. dos discos rígidos | 38080 |
 | [MySpeed](compose/myspeed/) | Histórico de velocidade de internet | 5216 |
-| [Apache Tika](compose/nextcloud/) | OCR e indexação de texto completo (integrado ao Nextcloud) | 9998 |
 | [Aria2 + AriaNg](compose/aria2/) | Downloads DDL com WebUI | 6800 / 6880 |
 | ConFin | Controle financeiro + bot NFC-e no Telegram ([repo próprio](https://github.com/rafaelcorrealr/confin)) | 8765 |
 | Suwayomi | Leitor/downloader de mangás (extensões Mihon, offline) | 4567 |
@@ -52,18 +51,17 @@ Servidor doméstico rodando sobre Ubuntu Server 24.04, gerenciado com Docker Com
 
 3. Suba o serviço desejado:
    ```bash
-   docker compose -f compose/nextcloud/docker-compose.yml up -d
+   docker compose -f compose/jellyfin/docker-compose.yml up -d
    ```
 
 ### Ordem recomendada para primeiro deploy
 
-1. `nextcloud` (inclui PostgreSQL, Redis e Tika)
-2. `jellyfin`
-3. `syncthing`
-4. `n8n`
-5. `qbittorrent`
-6. `scrutiny`
-7. `myspeed`
+1. `jellyfin`
+2. `syncthing`
+3. `n8n`
+4. `qbittorrent`
+5. `scrutiny`
+6. `myspeed`
 
 ## Segurança
 
