@@ -1,0 +1,12 @@
+[Unit]
+Description=Backup das fotos pessoais pro MEGA (rclone, offsite)
+After=network-online.target local-fs.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=bia
+Group=bia
+Nice=10
+IOSchedulingClass=idle
+ExecStart=/home/bia/homelab/scripts/backup-fotos-mega.sh

@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.21.0] — 2026-08-15
+
+### Backup offsite das fotos pessoais — MEGA via rclone
+
+Primeira camada de backup **fora de casa** (as 2 camadas existentes — Syncthing + restic — são só locais). `rclone` (já instalado) configurado com remote `mega_fotos` (conta MEGA existente do Werus). Achado: a pasta `10.Pessoal/Fotos` (12GB, 1235 arquivos) já tinha sido subida manualmente pro MEGA em 22/11/2025 ("Backup Fotos", mesma estrutura) — `rclone check` confirmou 1234/1235 batendo (só faltava um `desktop.ini`, lixo do Windows, ignorado).
+
+- **Script**: `scripts/backup-fotos-mega.sh` — usa `rclone copy` (não `sync`): só adiciona/atualiza no MEGA, nunca apaga lá se sumir localmente — protege o backup contra deleção acidental na origem.
+- **Timer**: `backup-fotos-mega.timer` diário às 03:20 BRT (logo após o `backup-cofre.timer` de 03:00), mesmo padrão dos backups existentes (`Nice=10`, `IOSchedulingClass=idle`).
+- Credencial: `~/.config/rclone/rclone.conf` (600, senha ofuscada pelo rclone) — fora do git, mesmo padrão do `restic/cofre.pw`.
+- Testado manualmente: `0 B transferidos, 1234/1234 checks, 3.3s` — confirma que já estava tudo sincronizado.
+
 ## [2.20.1] — 2026-08-13
 
 ### Tika removido (órfão do stack do Nextcloud, esquecido na decomissão)
