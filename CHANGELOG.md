@@ -1,5 +1,38 @@
 # Changelog
 
+## [2.22.0] — 2026-08-16
+
+### poupa-db — Postgres dedicado pro catálogo de cupons fiscais do PoupaMercado
+
+Primeiro passo da infra do bot de cupons fiscais do PoupaMercado (desenhado pela Anna, handoff entregue via Syncthing em `10.Projects/PoupaMercado/_Backend/`). Banco **100% anônimo** por decisão de projeto — sem tabela pessoa↔nota, sem CPF.
+
+- **`compose/poupa-db/docker-compose.yml`**: `postgres:16`, porta `5432` (livre, primeiro Postgres deste servidor), volume `/DATA/AppData/poupa-db`, senha em `POUPA_DB_PASSWORD` (novo `.env`, gitignored).
+- **Achado**: `/DATA/AppData/pgdata` é lixo órfão de um Postgres do Nextcloud já decomissionado (v2.20.0) — não reaproveitado, banco novo foi pra pasta própria.
+- Schema aplicado (`schema.sql`, entregue pela Anna): 5 tabelas (`emitente`, `nota`, `item`, `job`, `foto`) + extensão `pg_trgm` pro casamento de descrição de produto entre lojas.
+
+### poupa-api — API FastAPI expondo QR decode + parser da NFC-e
+
+Serviço stateless em `~/poupamercado/api/` (build local, mesmo padrão do `confin/Dockerfile`), porta `8766`, autenticado por Bearer token (`POUPA_API_TOKEN`). Não escreve no Postgres — quem persiste é o N8N via node Postgres nativo, quando o workflow for montado (pendente do token do bot novo, a entregar pelo Werus).
+
+- `POST /decode-qr` — decode de QR de foto de cupom. **Vendorado** de `/home/bia/confin/app/nfce.py::decode_qr()` (pyzbar + cascata de 6 realces), e não chamando o endpoint `/api/imagem/triagem` do ConFin direto — aquele está acoplado ao banco pessoal (`financas.db`) e às pendências do ConFin; misturar quebraria a garantia de banco 100% anônimo do PoupaMercado.
+- `GET /nota/{chave}` — chama `sefaz.consulta()` (da Anna) e devolve o JSON pronto.
+- Testado ponta a ponta: 401 sem token/token errado, 422 com imagem sem QR, 200 com QR real (chave de teste `35240845543915098211650170000016801096369037` → decodificada corretamente pelo `/decode-qr` e resolvida pelo `/nota/{chave}`, mesma nota HIPER Presidente Prudente validada antes).
+- **Sem fallback de visão por LLM** (decisão): custaria por chamada, contra a preferência histórica de priorizar soluções gratuitas. O "fallback de visão" que o handoff da Anna previa não existe hoje no ConFin (é OCR de comprovante, não decodifica QR) — o fallback real de QR ilegível fica pro N8N pedir reenvio (`job.estado = 'aguardando_reenvio'`, já no `schema.sql`).
+- Pendente: workflow N8N (intake/worker/expurgo) — aguarda o token do bot novo do Werus.
+
+### PoupaMercado — Cupons (N8N) — bot @PoupaMercadoBot ativo
+
+Werus entregou o token do bot (@PoupaMercadoBot). Workflow novo criado no N8N (31 nós, 3 gatilhos independentes) e **ativado**.
+
+- **Intake (a cada 5s)**: `getUpdates` (polling, mesmo padrão do "Project ConFin" — sem webhook público) → classifica foto/link/chave/`/start` → checa teto de 20 pendentes por `chat_id` → grava `job` → responde "recebido" ou "fila cheia".
+- **Worker (a cada 15s)**: reivindica até 5 jobs por rodada com fila justa (1 por `chat_id`) via `FOR UPDATE SKIP LOCKED` — **achei e corrigi 2 bugs de SQL** nessa query testando direto no `poupa-db` antes de importar (window function não aceita `FOR UPDATE` na mesma query; a coluna de ordenação precisa estar projetada na subquery). Foto → baixa do Telegram → `poupa-api /decode-qr`; link/chave → novo endpoint `poupa-api /extrai-chave` (adicionado nesta sessão, faltava no desenho original). Consulta `/nota/{chave}`, upsert `emitente`+`nota`+`item` (idempotente via `ON CONFLICT`), fecha o job e responde.
+- **Expurgo (de hora em hora)**: as 3 queries do fim do `schema.sql`.
+- **Credenciais N8N**: criadas via `n8n import:credentials` (CLI) — `telegramApi` pro bot novo e `postgres` pro `poupa-db` (`172.17.0.1:5432`).
+- **Achado de plataforma**: `n8n import:workflow` (CLI) não cria a linha correspondente em `workflow_history`, e `workflow_entity.activeVersionId` é FK pra lá — ativação falhava com `FOREIGN KEY constraint failed` até eu inserir manualmente a linha de histórico faltante. N8N também avisa que ativar via `update:workflow` só funciona de verdade após reiniciar o processo — reiniciado via `docker restart n8n` (não `docker compose restart`, que quebrou por `STORAGE_PATH` não estar no `.env` deste host).
+- **Escopo cortado por decisão**: fotos não são salvas em disco nesta v1 (tabela `foto` fica vazia por ora) — o worker baixa da Telegram, decodifica em memória e descarta; mede-se hit-rate de QR ruim depois, é um spike em aberto no handoff da Anna, não bloqueia o pipeline principal.
+- **Pós-restart**: os 4 workflows (incluindo os 3 de produção pré-existentes) subiram ativos sem erro. Fila em `poupa-db` seguia vazia (nenhuma mensagem real recebida ainda) no momento da verificação.
+- **Pendente**: teste ponta a ponta com mensagem real de usuário no @PoupaMercadoBot.
+
 ## [2.21.0] — 2026-08-15
 
 ### Backup offsite das fotos pessoais — MEGA via rclone

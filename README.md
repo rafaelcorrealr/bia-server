@@ -18,6 +18,9 @@ Servidor doméstico rodando sobre Ubuntu Server 24.04, gerenciado com Docker Com
 | [Aria2 + AriaNg](compose/aria2/) | Downloads DDL com WebUI | 6800 / 6880 |
 | ConFin | Controle financeiro + bot NFC-e no Telegram ([repo próprio](https://github.com/rafaelcorrealr/confin)) | 8765 |
 | Suwayomi | Leitor/downloader de mangás (extensões Mihon, offline) | 4567 |
+| [poupa-db](compose/poupa-db/) | Postgres dedicado — banco anônimo de cupons fiscais do PoupaMercado | 5432 |
+| poupa-api | API do coletor de cupons (decode QR + parser NFC-e SP) — `~/poupamercado/api/` | 8766 |
+| PoupaMercado — Cupons (n8n) | Bot Telegram @PoupaMercadoBot — intake/worker/expurgo de cupons fiscais | — |
 
 ## Hardware
 
