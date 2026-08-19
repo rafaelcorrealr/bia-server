@@ -1,5 +1,26 @@
 # Changelog
 
+## [2.23.0] — 2026-08-18
+
+### ConFin: ponto inicial da conta (saldo conferido numa data)
+
+Werus reabriu o ConFin ("reviver projeto") pedindo um ponto inicial: informar o saldo real de uma conta numa data, de modo que lançamento retroativo não bagunçe o saldo de hoje. Entregue e deployado (`confin` `79f629d`).
+
+**A regra veio do exemplo dele, e o exemplo era a única fonte da verdade.** O enunciado (início 10/08 = 1000; +80 em 02/08 → saldo 1000 e inicial 920; +80 em 11/08 → 1080) parecia contraditório — a leitura ingênua "retroativo soma no saldo" daria 1080/1000, o oposto. Só uma hipótese fecha os **dois** números: `saldo_inicial` é o saldo **naquela data**, e o que veio antes já está embutido nele.
+
+- `saldo_atual = saldo_inicial + soma(lançamentos ≥ data_inicio)`
+- valor de origem exibido = `saldo_inicial − soma(lançamentos < data_inicio)`
+
+**Implementação:**
+- Coluna nova `contas.data_inicio` (nullable, migração idempotente). **NULL = comportamento antigo** — contas existentes não mudam de saldo.
+- A regra vive **só na leitura** (`helpers._deltas()`, uma query devolvendo `(depois, antes)`). Os **5 pontos que gravam lançamento** (form manual, `/api/lancamentos`, pagar fatura, NFC-e, importar CSV) **não precisaram mudar** — evita espalhar a regra.
+- ⚠️ `routers/extratos.py` precisou do mesmo corte: calculava o saldo do período somando todo o histórico anterior, o que contaria em dobro o já embutido.
+- UI: campo "Saldo conferido em" no form de conta + `origem R$ X · conferido 10 ago` no card.
+
+**Verificação:** 6 testes novos (incl. o exemplo ao pé da letra), suite 57/57; migração rodada antes contra **cópia do banco de produção** — as 4 contas dão o mesmo saldo na fórmula velha e na nova.
+
+**Fora de escopo (decisão do Werus):** cartões (modelo é fatura por ciclo, não saldo corrente — precisa desenho e exemplo numérico próprios) e tela de primeiro acesso (campo entrou no form existente).
+
 ## [2.22.0] — 2026-08-16
 
 ### poupa-db — Postgres dedicado pro catálogo de cupons fiscais do PoupaMercado
