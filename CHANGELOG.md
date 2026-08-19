@@ -1,5 +1,31 @@
 # Changelog
 
+## [2.24.0] — 2026-08-19
+
+### ConFin: ponto inicial do cartão (fatura e limite conferidos numa data)
+
+Continuação da v2.23.0 (que cobriu só contas). Decisões do Werus: **dois valores separados** (fatura acumulada + limite comprometido) e **âncora só na competência aberta na data**. Deployado (`confin` `f9d39af`).
+
+Cartão não tem saldo corrente — tem **fatura por ciclo** (`fatura_mes` = bruto − pago por `data_competencia`). Então a âncora fica presa a **uma** competência: `_competencia_aberta(data_inicio, dia_fechamento)`. Nela:
+
+- `bruto = fatura_inicial + Σ despesas(data ≥ corte)`
+- `origem = fatura_inicial − Σ despesas(data < corte)`
+
+Meses seguintes começam do zero; `data_inicio` NULL mantém tudo como era.
+
+**Implementação:**
+- 3 colunas em `cartoes`: `data_inicio`, `fatura_inicial`, `comprometido_inicial`.
+- Regra **só na leitura**: `fatura_mes()` virou ponto único — já era chamada pelos 3 consumidores (grid de cartões, pagar fatura, extrato), que ficaram coerentes sem tocar em nenhum ponto de escrita.
+- UI: 3 campos no form do cartão + linha `origem R$ X · conferida 10 ago` no card.
+
+**2 bugs pré-existentes corrigidos de tabela:**
+- `disponivel = limite − fatura_atual` **ignorava parcelas futuras** (10x de R$500 aparecia como R$500 usado) — o "livre" agora usa `comprometido`, que inclui competências futuras.
+- O dashboard assumia `regra_competencia='anterior'` **para todos** os cartões ao calcular o pago — sumiu ao trocar o SQL único por loop reusando `fatura_mes` (mudança necessária: sem ela o card mostraria 400 e o dashboard 0).
+
+⚠️ **Divergência antiga mantida**: grid de cartões usa `_competencia_aberta(hoje, dia_fechamento)`, dashboard usa `MES_FIN`/`regra_competencia` — discordam na borda do dia de fechamento. Anterior a esta feature; não unificada pra não mudar números sem o Werus pedir.
+
+**Verificação:** 8 testes novos, suite 65/65; migração validada contra cópia do banco de produção e semântica conferida ali com dados reais (400 → +80 depois = 480 → +80 antes = 480 com origem 320).
+
 ## [2.23.0] — 2026-08-18
 
 ### ConFin: ponto inicial da conta (saldo conferido numa data)
