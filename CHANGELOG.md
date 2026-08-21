@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.25.0] — 2026-08-20
+
+### PoupaMercado: app Expo de teste (scanner QR + código de barras) + endpoint de produto
+
+Werus pediu um app simples pra validar captura de QR/código de barras pela câmera nativa, no Expo Go (sem build).
+
+- **`poupa-api`**: novo `GET /produto/{gtin}` consultando o `catalogo.sqlite` (Open Food Facts) por código de barras — volume novo montado no compose (`~/poupamercado/catalogo:/data/catalogo:ro`).
+- **`confin2/apps/teste-scanner/`** (novo, descartável): Expo + `expo-camera`, uma tela — QR do cupom via `/extrai-chave`+`/nota/{chave}`, código de barras via `/produto/{gtin}`.
+- 2 achados: RTK represa saída de processo contínuo (`rtk proxy` resolve); SDK do projeto Expo precisa bater com a versão do Expo Go instalado (downgrade de SDK 57→54 + reinstall limpo + `expo-doctor`).
+- Validado ao vivo: código de barras escaneado com sucesso pelo Werus. QR ainda não testado por esse caminho.
+
 ## [2.24.0] — 2026-08-19
 
 ### ConFin: ponto inicial do cartão (fatura e limite conferidos numa data)
