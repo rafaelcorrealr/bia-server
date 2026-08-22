@@ -1,0 +1,32 @@
+# Instância de TESTE do ConFin — código novo (multiusuário + API do app Android)
+# rodando sobre uma CÓPIA do banco de produção. Serve pra validar o APK sem
+# encostar no container 'confin', que o Rafael e a Yasmim usam todo dia.
+#
+# Produção: porta 8765, /DATA/AppData/confin/data, imagem confin:latest
+# Teste:    porta 8767, /DATA/AppData/confin-teste/data, imagem confin-teste:latest
+#
+# Para remover: docker compose down && sudo rm -rf /DATA/AppData/confin-teste
+name: confin-teste
+services:
+  confin-teste:
+    build:
+      context: /home/bia/confin
+      dockerfile: Dockerfile
+    container_name: confin-teste
+    image: confin-teste:latest
+    restart: unless-stopped
+    network_mode: bridge
+    environment:
+      TZ: America/Sao_Paulo
+      # layout novo: a raiz dos dados, não um arquivo. CONFIN_DB atropelaria isso.
+      CONFIN_DATA_DIR: /data
+      CONFIN_API_TOKEN: Wf1Wb3nDpEf6LOj86dvXpvjwh8GDk2oKCVvgRc1LXyY
+      CONFIN_API_USUARIO: "1"
+    ports:
+      - "8767:8000"
+    volumes:
+      - /DATA/AppData/confin-teste/data:/data
+    deploy:
+      resources:
+        limits:
+          memory: "268435456"
