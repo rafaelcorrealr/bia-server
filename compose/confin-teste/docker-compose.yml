@@ -22,6 +22,9 @@ services:
       CONFIN_DATA_DIR: /data
       CONFIN_API_TOKEN: Wf1Wb3nDpEf6LOj86dvXpvjwh8GDk2oKCVvgRc1LXyY
       CONFIN_API_USUARIO: "1"
+      # banco de preços colaborativo (poupa-api) — só a chave da nota atravessa
+      POUPA_API_URL: http://172.17.0.1:8766
+      POUPA_API_TOKEN: ikRHPXJyvIJQF9eDwI4ITKABdYLALZN4cQ02sEKHY
     ports:
       - "8767:8000"
     volumes:
