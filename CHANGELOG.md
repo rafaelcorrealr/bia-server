@@ -1,5 +1,52 @@
 # Changelog
 
+## [2.26.0] — 2026-08-22
+
+### ConFin virou produto: multiusuário, APK Android e aba de preços
+
+Execução da virada de escopo que o Werus escreveu no `⏳ Decisões pendentes.md` do
+projeto ConFin ("ConFin cresceu"). O app de casal virou produto; o PoupaMercado
+encolheu pro que é só dele (banco de preços, catálogo, bot) e virou um **serviço que
+o ConFin consome**.
+
+**Multiusuário — um arquivo de banco por conta**
+- `data/users/{id}/{financas.db, inbox/}` em vez de `WHERE usuario_id` em ~160 consultas. Isolamento por construção: **os 85 testes anteriores passaram sem uma linha alterada**.
+- `auth.db` global guarda usuarios (argon2), sessoes (SHA-256 do token) e compartilhamentos.
+- Sessão exigida no `include_router`, não no `get_db` — rota que não toca o banco também fica protegida.
+- Migração automática no boot (`data/financas.db` → `data/users/1/`), validada 3× contra cópia do banco de produção.
+- ⚠️ **`CONFIN_DB` trocado por `CONFIN_DATA_DIR` no compose do CasaOS** — o primeiro tem prioridade sobre tudo e faria o app abrir sempre o mesmo arquivo.
+
+**Compartilhamento seletivo**
+- Banco do dono aberto em conexão **somente leitura**, rodando nele os helpers de sempre: nenhum `UNION`, nenhum `ATTACH`. O compartilhado aparece em seção à parte e não entra nos totais de quem recebe.
+
+**Assinaturas recorrentes**
+- Cobrança fixa que vira lançamento sozinha com a data real; cursor avançado por compare-and-swap (duas abas não geram em dobro).
+
+**App Android + toolchain local**
+- `confin/apps/mobile` (Expo 54): Login, Home, Scanner, Confirmar, Preços, Ajustes, Notificações.
+- **APK construído na própria Bia, sem conta Expo**: JDK 17 + Android SDK 36 + NDK 27.1 em `/home/bia/android-sdk` (~8 GB). 39 MB, assinado; keystore em `/home/bia/.android-keys`.
+- Listener de notificação bancária funcionando (limite: o serviço nativo descarta se o processo JS não estiver vivo).
+- Permissões enxugadas de 11 pra 5 (microfone, overlay e armazenamento vinham de plugins de dependências).
+
+**Banco de preços colaborativo**
+- `poupa-api` deixou de ser stateless: `POST /precos/coletar`, `GET /precos/comparar`, `GET /precos/resumo`.
+- ConFin contribui em `BackgroundTasks` mandando **só a chave da nota** — nenhum dado de usuário atravessa. Falha ao contribuir é engolida.
+- Casamento por `word_similarity` do pg_trgm, não `similarity` (que penaliza diferença de tamanho: "leite" não achava "LEITE UHT INT PARMAL"). Limiar 0,45 calibrado com pares reais de cupom.
+
+**Infra nova**
+
+| Item | O que é |
+|---|---|
+| `confin-teste` (:8767) | instância paralela sobre cópia do banco, pra validar sem risco |
+| `apk-confin.service` | systemd user servindo o APK no tailnet (:8088), com `linger` |
+| `~/poupamercado` | virou repo git — o backend existia só no disco |
+| `scripts/smoke-deploy.sh` | 24 checagens contra o app **rodando** (teste roda contra o código; isso não pega deploy esquecido) |
+
+**Revisão de código no fim**: 10 achados, 8 corrigidos (o mais sério: `compare_digest`
+estoura com Bearer não-ASCII → 500 em qualquer rota protegida; argon2 bloqueando o
+event loop por 90 ms; `/cadastro` entregando banco com dados a quem chegasse primeiro).
+2 com severidade exagerada, documentado. 163 testes no fim; eram 65 no início.
+
 ## [2.25.0] — 2026-08-20
 
 ### PoupaMercado: app Expo de teste (scanner QR + código de barras) + endpoint de produto
