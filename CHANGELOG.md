@@ -1,6 +1,6 @@
 # Changelog
 
-## [2.26.0] — 2026-08-22
+## [2.26.0] — 2026-08-26
 
 ### ConFin virou produto: multiusuário, APK Android e aba de preços
 
